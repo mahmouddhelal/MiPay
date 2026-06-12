@@ -1,9 +1,10 @@
 import re
 import uuid
+from dataclasses import asdict
 from datetime import date as date_type
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Form, Query, Request, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,11 +13,17 @@ from app.core.exceptions import AppError
 from app.db.session import get_db
 from app.models.transaction import Transaction
 from app.schemas.transaction import (
+    ExtractTextRequest,
     TransactionCreate,
     TransactionListOut,
     TransactionOut,
     TransactionUpdate,
+    VoiceExtractionResult,
 )
+from app.services import voice_pipeline
+from app.services.extraction import ExtractionError
+from app.services.stt import STTService
+from app.services.voice_pipeline import PipelineResult
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -44,6 +51,54 @@ async def _get_owned_transaction(
     if tx is None:
         raise AppError(404, "NOT_FOUND", "Transaction not found.")
     return tx
+
+
+def _to_response(result: PipelineResult) -> VoiceExtractionResult:
+    return VoiceExtractionResult(
+        status=result.status,
+        transcript=result.transcript,
+        detected_language=result.detected_language,
+        extraction=asdict(result.extraction) if result.extraction else None,
+        timing_ms=result.timing_ms,
+    )
+
+
+@router.post("/voice", response_model=VoiceExtractionResult)
+async def extract_from_voice(
+    request: Request,
+    current_user: CurrentUser,
+    audio: UploadFile,
+    client_date: date_type = Form(...),
+    client_locale: Literal["ar", "en"] = Form("en"),
+) -> VoiceExtractionResult:
+    """The AI endpoint (§5.2). Returns the extraction — saves nothing.
+    The app saves via POST /transactions after user confirmation."""
+    stt: STTService | None = getattr(request.app.state, "whisper_model", None)
+    if stt is None:
+        raise AppError(503, "STT_UNAVAILABLE", "Speech model is not loaded yet.")
+
+    try:
+        result = await voice_pipeline.process_audio(
+            audio, client_date, current_user.default_currency, stt
+        )
+    except ExtractionError:
+        raise AppError(502, "EXTRACTION_FAILED", "The extraction service is unavailable.")
+    return _to_response(result)
+
+
+@router.post("/extract-text", response_model=VoiceExtractionResult)
+async def extract_from_text(
+    body: ExtractTextRequest,
+    current_user: CurrentUser,
+) -> VoiceExtractionResult:
+    """Mode B (FEATURES.md §2): typed input — same pipeline, no STT step."""
+    try:
+        result = await voice_pipeline.process_text(
+            body.text, body.client_date, current_user.default_currency
+        )
+    except ExtractionError:
+        raise AppError(502, "EXTRACTION_FAILED", "The extraction service is unavailable.")
+    return _to_response(result)
 
 
 @router.post("", response_model=TransactionOut, status_code=201)

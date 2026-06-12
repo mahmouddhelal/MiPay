@@ -82,3 +82,36 @@ class TransactionListOut(BaseModel):
     page: int
     page_size: int
     total: int
+
+
+# ── Voice/text extraction (§5.2 response shape + FEATURES.md §2.2) ──────────
+
+class ExtractionOut(BaseModel):
+    transaction_type: str | None
+    amount: float | None
+    currency: str
+    category: str | None
+    name: str | None
+    date: date_type
+    confidence: str
+
+
+class VoiceExtractionResult(BaseModel):
+    status: Literal["ok", "needs_review", "failed"]
+    transcript: str
+    detected_language: str | None
+    extraction: ExtractionOut | None
+    timing_ms: dict[str, int]
+
+
+class ExtractTextRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    client_date: date_type
+    client_locale: Literal["ar", "en"] = "en"
+
+    @field_validator("text")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("text must not be blank")
+        return v.strip()
