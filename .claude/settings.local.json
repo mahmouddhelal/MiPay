@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter --version)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Skill(run)",
+      "Bash(sudo systemctl start docker)",
+      "Bash(sudo service docker start)",
+      "Bash(sg docker *)",
+      "Bash(wait)",
+      "Bash(curl -s http://localhost:8000/api/v1/health)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8000/openapi.json)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(m.upper\\(\\), p\\) for p,ops in d.get\\('paths',{}\\).items\\(\\) for m in ops]\")",
+      "Bash(curl -s http://localhost:8000/docs -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -s http://localhost:8000/redoc -o /dev/null -w \"%{http_code}\")"
+    ]
+  }
+}
