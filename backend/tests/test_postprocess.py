@@ -70,11 +70,22 @@ class TestResolveDate:
         assert resolve_date("البارح", CLIENT_DATE) == date(2026, 6, 11)
         assert resolve_date("البارحة", CLIENT_DATE) == date(2026, 6, 11)
 
+    def test_egyptian_dialect_yesterday(self):
+        assert resolve_date("امبارح", CLIENT_DATE) == date(2026, 6, 11)
+        assert resolve_date("إمبارح", CLIENT_DATE) == date(2026, 6, 11)
+
     def test_day_before_yesterday(self):
         assert resolve_date("أول أمس", CLIENT_DATE) == date(2026, 6, 10)
 
+    def test_egyptian_day_before_yesterday(self):
+        assert resolve_date("أول امبارح", CLIENT_DATE) == date(2026, 6, 10)
+
     def test_arabic_today(self):
         assert resolve_date("اليوم", CLIENT_DATE) == CLIENT_DATE
+
+    def test_egyptian_today(self):
+        assert resolve_date("النهارده", CLIENT_DATE) == CLIENT_DATE
+        assert resolve_date("النهاردة", CLIENT_DATE) == CLIENT_DATE
 
     def test_relative_days_ago(self):
         assert resolve_date("2 days ago", CLIENT_DATE) == date(2026, 6, 10)

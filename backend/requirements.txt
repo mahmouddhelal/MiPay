@@ -15,3 +15,4 @@ dateparser>=1.2.0
 python-multipart>=0.0.9
 pytest>=8.0
 pytest-asyncio>=0.23
+jiwer>=3.0

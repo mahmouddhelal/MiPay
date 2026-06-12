@@ -44,11 +44,18 @@ _DIALECT_DATE_MAP = {
     "امس": "yesterday",
     "البارح": "yesterday",
     "البارحة": "yesterday",
+    "امبارح": "yesterday",
+    "إمبارح": "yesterday",
+    "أمبارح": "yesterday",
     "أول أمس": "2 days ago",
     "اول امس": "2 days ago",
     "أول البارح": "2 days ago",
     "اول البارح": "2 days ago",
+    "أول امبارح": "2 days ago",
+    "اول امبارح": "2 days ago",
     "اليوم": "today",
+    "النهارده": "today",
+    "النهاردة": "today",
 }
 
 # Retry transforms for phrases dateparser 1.x can't parse directly (verified):
