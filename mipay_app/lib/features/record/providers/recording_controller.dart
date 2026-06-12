@@ -39,8 +39,8 @@ class RecordingResult extends RecordingState {
 }
 
 class RecordingError extends RecordingState {
-  const RecordingError(this.message, {this.permissionDenied = false});
-  final String message;
+  const RecordingError({this.apiException, this.permissionDenied = false});
+  final ApiException? apiException;
   final bool permissionDenied;
 }
 
@@ -64,8 +64,7 @@ class RecordingController extends StateNotifier<RecordingState> {
     if (state is RecordingActive || state is RecordingProcessing) return;
 
     if (!await _recorder.hasPermission()) {
-      state = const RecordingError('Microphone permission denied.',
-          permissionDenied: true);
+      state = const RecordingError(permissionDenied: true);
       return;
     }
 
@@ -112,13 +111,13 @@ class RecordingController extends StateNotifier<RecordingState> {
     try {
       path = await _recorder.stop();
       if (path == null) {
-        state = const RecordingError('Recording produced no audio.');
+        state = const RecordingError();
         return;
       }
       final result = await _repo.extractFromAudio(path, locale: locale);
       state = RecordingResult(result);
     } catch (e) {
-      state = RecordingError(_message(e));
+      state = RecordingError(apiException: _toApiException(e));
     } finally {
       if (path != null) {
         File(path).delete().ignore(); // clip never persists on device either
@@ -142,7 +141,7 @@ class RecordingController extends StateNotifier<RecordingState> {
       final result = await _repo.extractFromText(trimmed, locale: locale);
       state = RecordingResult(result);
     } catch (e) {
-      state = RecordingError(_message(e));
+      state = RecordingError(apiException: _toApiException(e));
     }
   }
 
@@ -151,11 +150,9 @@ class RecordingController extends StateNotifier<RecordingState> {
     state = const RecordingIdle();
   }
 
-  static String _message(Object e) {
-    if (e is DioException && e.error is ApiException) {
-      return (e.error as ApiException).message;
-    }
-    return 'Could not process the recording. Check your connection.';
+  static ApiException? _toApiException(Object e) {
+    if (e is DioException && e.error is ApiException) return e.error as ApiException;
+    return null;
   }
 }
 

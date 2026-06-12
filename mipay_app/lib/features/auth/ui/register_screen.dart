@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mipay_app/l10n/app_localizations.dart';
 
 import '../providers/auth_controller.dart';
 
@@ -46,8 +47,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     ref.listen<AuthState>(authControllerProvider, (_, next) {
       if (next is AuthError) {
+        final l10n = AppLocalizations.of(context)!;
+        final msg = next.apiException?.localizedMessage(l10n) ?? l10n.errorUnknown;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.message), backgroundColor: Colors.red),
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
         );
       }
     });

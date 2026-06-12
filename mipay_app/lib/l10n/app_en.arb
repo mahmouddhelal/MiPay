@@ -83,5 +83,16 @@
   "errorInvalidCredentials": "Invalid email or password.",
   "errorRequired": "This field is required.",
   "errorMinPassword": "Password must be at least 8 characters.",
-  "errorInvalidEmail": "Enter a valid email address."
+  "errorInvalidEmail": "Enter a valid email address.",
+
+  "errorTokenExpired": "Your session has expired. Please sign in again.",
+  "errorNotFound": "The requested item was not found.",
+  "errorAudioTooLong": "Recording is too long. Maximum is 30 seconds.",
+  "errorAudioUnsupported": "Audio format not supported. Please try again.",
+  "errorExtractionFailed": "AI service is unavailable. Please try again later.",
+  "errorInternal": "A server error occurred. Please try again later.",
+  "errorValidation": "Please check your input and try again.",
+  "errorNetwork": "Connection error. Check your network and try again.",
+  "errorUnknown": "Something went wrong. Please try again.",
+  "errorMicPermission": "Microphone permission is required to record audio."
 }

@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/api/api_exceptions.dart';
 import '../../../core/auth/token_storage.dart';
 import '../data/auth_repository.dart';
 import '../models/user.dart';
@@ -24,8 +26,9 @@ class AuthUnauthenticated extends AuthState {
 }
 
 class AuthError extends AuthState {
-  const AuthError(this.message);
-  final String message;
+  const AuthError({this.apiException, this.fallback = ''});
+  final ApiException? apiException;
+  final String fallback;
 }
 
 // ── Controller ─────────────────────────────────────────────────────────────
@@ -64,7 +67,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       state = AuthAuthenticated(result.user);
     } catch (e) {
-      state = AuthError(_extractMessage(e));
+      state = AuthError(apiException: _toApiException(e));
     }
   }
 
@@ -89,7 +92,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       state = AuthAuthenticated(result.user);
     } catch (e) {
-      state = AuthError(_extractMessage(e));
+      state = AuthError(apiException: _toApiException(e));
     }
   }
 
@@ -120,9 +123,11 @@ class AuthController extends StateNotifier<AuthState> {
     state = const AuthUnauthenticated();
   }
 
-  static String _extractMessage(Object e) {
-    if (e is Exception) return e.toString().replaceFirst('Exception: ', '');
-    return 'An unexpected error occurred.';
+  static ApiException? _toApiException(Object e) {
+    if (e is DioException && e.error is ApiException) {
+      return e.error as ApiException;
+    }
+    return null;
   }
 }
 

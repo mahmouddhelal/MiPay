@@ -67,8 +67,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (next is RecordingResult) {
         _openConfirmSheet(next.result);
       } else if (next is RecordingError) {
+        final l10n = AppLocalizations.of(context)!;
+        final msg = next.permissionDenied
+            ? l10n.errorMicPermission
+            : (next.apiException?.localizedMessage(l10n) ?? l10n.errorNetwork);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.message), backgroundColor: Colors.red),
+          SnackBar(content: Text(msg), backgroundColor: Colors.red),
         );
         ref.read(recordingControllerProvider.notifier).reset();
       }

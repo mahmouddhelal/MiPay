@@ -6,7 +6,6 @@ from sqlalchemy import text
 
 from app.api.v1 import auth as auth_router
 from app.api.v1 import categories as categories_router
-from app.api.v1 import debug as debug_router
 from app.api.v1 import summary as summary_router
 from app.api.v1 import transactions as transactions_router
 from app.api.v1 import users as users_router
@@ -21,7 +20,6 @@ router.include_router(users_router.router)
 router.include_router(transactions_router.router)
 router.include_router(categories_router.router)
 router.include_router(summary_router.router)
-router.include_router(debug_router.router)  # temporary — Phase 3 STT testing
 
 
 @router.get("/health", tags=["system"])

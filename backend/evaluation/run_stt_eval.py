@@ -19,6 +19,16 @@ Prerequisites
   (Rows with audio_path=null or missing file are skipped with a warning.)
 - Python packages: httpx, jiwer  (pip install httpx jiwer)
 
+IMPORTANT — debug endpoint
+--------------------------
+This script calls POST /debug/transcribe which is NOT mounted in production.
+Before running STT eval, temporarily re-enable it in backend/app/api/v1/router.py:
+
+    from app.api.v1 import debug as debug_router
+    router.include_router(debug_router.router)
+
+Remove it again after eval is complete.
+
 Environment variables
 ---------------------
 BASE_URL       Backend base URL (default: http://localhost:8000/api/v1)
