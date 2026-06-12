@@ -1,11 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/api/dio_client.dart';
 import '../models/user.dart';
 
 class AuthRepository {
-  const AuthRepository(this._dio);
-  final Dio _dio;
+  const AuthRepository(this._plainDio, this._authedDio);
+  final Dio _plainDio;
+  final Dio _authedDio;
 
   Future<({String accessToken, String refreshToken, User user})> register({
     required String email,
@@ -13,7 +15,7 @@ class AuthRepository {
     required String displayName,
     String defaultCurrency = 'SAR',
   }) async {
-    final r = await _dio.post('/auth/register', data: {
+    final r = await _plainDio.post('/auth/register', data: {
       'email': email,
       'password': password,
       'display_name': displayName,
@@ -26,7 +28,7 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final r = await _dio.post('/auth/login', data: {
+    final r = await _plainDio.post('/auth/login', data: {
       'email': email,
       'password': password,
     });
@@ -34,12 +36,25 @@ class AuthRepository {
   }
 
   Future<({String accessToken, String refreshToken})> refreshToken(String token) async {
-    final r = await _dio.post('/auth/refresh', data: {'refresh_token': token});
+    final r = await _plainDio.post('/auth/refresh', data: {'refresh_token': token});
     final data = r.data as Map<String, dynamic>;
     return (
       accessToken: data['access_token'] as String,
       refreshToken: data['refresh_token'] as String,
     );
+  }
+
+  Future<User> updateProfile({
+    String? displayName,
+    String? defaultCurrency,
+    String? locale,
+  }) async {
+    final body = <String, dynamic>{};
+    if (displayName != null) body['display_name'] = displayName;
+    if (defaultCurrency != null) body['default_currency'] = defaultCurrency;
+    if (locale != null) body['locale'] = locale;
+    final r = await _authedDio.patch('/users/me', data: body);
+    return User.fromJson(r.data as Map<String, dynamic>);
   }
 
   static ({String accessToken, String refreshToken, User user}) _parseAuthResponse(
@@ -62,5 +77,5 @@ final _plainDioProvider = Provider<Dio>((ref) {
 });
 
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => AuthRepository(ref.watch(_plainDioProvider)),
+  (ref) => AuthRepository(ref.watch(_plainDioProvider), ref.watch(dioProvider)),
 );

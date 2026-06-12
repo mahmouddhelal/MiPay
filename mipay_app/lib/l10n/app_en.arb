@@ -51,6 +51,9 @@
   "defaultCurrency": "Default Currency",
   "english": "English",
   "arabic": "Arabic",
+  "profile": "Profile",
+  "account": "Account",
+  "changesSaved": "Changes saved",
 
   "noTransactions": "No transactions yet",
   "orTypeInstead": "or type it instead…",

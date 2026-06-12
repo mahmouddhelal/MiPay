@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mipay_app/l10n/app_localizations.dart';
 
 import '../../features/auth/providers/auth_controller.dart';
 import '../../features/auth/ui/login_screen.dart';
@@ -41,11 +42,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/dashboard',
             builder: (context, state) => const DashboardScreen(),
           ),
+          GoRoute(
+            path: '/settings',
+            builder: (context, state) => const SettingsScreen(),
+          ),
         ],
-      ),
-      GoRoute(
-        path: '/settings',
-        builder: (context, state) => const SettingsScreen(),
       ),
     ],
   );
@@ -81,11 +82,13 @@ class _MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final location = GoRouterState.of(context).uri.toString();
     final index = switch (location) {
       String l when l.startsWith('/home') => 0,
       String l when l.startsWith('/transactions') => 1,
       String l when l.startsWith('/dashboard') => 2,
+      String l when l.startsWith('/settings') => 3,
       _ => 0,
     };
 
@@ -101,23 +104,30 @@ class _MainShell extends StatelessWidget {
               context.go('/transactions');
             case 2:
               context.go('/dashboard');
+            case 3:
+              context.go('/settings');
           }
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.mic_none),
-            selectedIcon: Icon(Icons.mic),
-            label: 'Record',
+            icon: const Icon(Icons.mic_none),
+            selectedIcon: const Icon(Icons.mic),
+            label: l10n.home,
           ),
           NavigationDestination(
-            icon: Icon(Icons.list_alt_outlined),
-            selectedIcon: Icon(Icons.list_alt),
-            label: 'Transactions',
+            icon: const Icon(Icons.list_alt_outlined),
+            selectedIcon: const Icon(Icons.list_alt),
+            label: l10n.transactions,
           ),
           NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Dashboard',
+            icon: const Icon(Icons.bar_chart_outlined),
+            selectedIcon: const Icon(Icons.bar_chart),
+            label: l10n.dashboard,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: const Icon(Icons.settings),
+            label: l10n.settings,
           ),
         ],
       ),

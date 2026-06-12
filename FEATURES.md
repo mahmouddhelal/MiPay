@@ -101,3 +101,68 @@ Parked ideas — do **not** build without explicit decision:
 - Multiple transactions in one utterance ("paid 50 for fuel and 30 for lunch") — currently
   out of scope; LLM schema is single-object.
 - Photo/receipt OCR input (already in spec §11 future work).
+
+---
+
+## 4. STT upgrade path: better Arabic & true code-switching (research notes — NOT scheduled)
+
+> Status: **text only — do not implement.** Added 2026-06-12 after Phase 3/4 testing.
+> Current baseline: `faster-whisper small`, `language=None`, which detects ONE dominant
+> language per clip and transcribes embedded foreign words "best effort" (§4.1). Two known
+> weaknesses: (a) heavy-dialect Arabic accuracy, (b) genuinely mixed ar↔en utterances where
+> the wrong dominant language wins.
+
+### 4.1 Cheapest upgrades first (no new code — env var only)
+
+| Option | What changes | Cost | Expected gain |
+|---|---|---|---|
+| `WHISPER_MODEL=medium` | nothing else | ~2.5× slower on CPU, ~3 GB RAM | Noticeably better MSA + Gulf Arabic; already the spec's documented fallback |
+| `WHISPER_MODEL=large-v3` | nothing else | needs GPU realistically (≥10 GB VRAM fp16; int8 CPU is painfully slow) | Best open-weights Arabic WER in the Whisper family; **also measurably better at code-switching** — the dominant-language problem shrinks |
+| `WHISPER_MODEL=large-v3-turbo` | nothing else | ~809M params; usable on 6 GB GPU, tolerable on strong CPU | ~large-v3 quality at ~6× the speed; best quality/latency ratio if any GPU is available |
+
+These slot directly into the existing ablation table (§4.6 of the spec): adding a
+`small vs medium vs large-v3-turbo` row to the thesis results is nearly free.
+
+### 4.2 Arabic-specialised models (self-hosted, replaces/augments Whisper)
+
+- **Dialect fine-tuned Whisper checkpoints (Hugging Face)** — community/academic Whisper
+  fine-tunes trained on Common Voice Arabic, MGB-2 (Aljazeera MSA), MGB-3/MGB-5 (Egyptian),
+  and QASR. Any HF Whisper checkpoint converts to faster-whisper format with one
+  `ct2-transformers-converter` command, so the existing `stt.py` works unchanged —
+  only the model path env var changes. *This is the lowest-friction "better Arabic" route.*
+- **Meta SeamlessM4T v2** — strong Arabic ASR, self-hostable, but a different inference
+  stack (no faster-whisper/CTranslate2 path) → real integration work + more RAM.
+- **Meta MMS (Massively Multilingual Speech)** — covers many Arabic varieties; generally
+  strong for low-resource languages but does not beat Whisper large on MSA; niche option.
+- ❌ **NVIDIA Canary/Parakeet** — excellent WER but no Arabic support; not applicable.
+
+### 4.3 True code-switching (ar+en in the same sentence)
+
+The honest framing for the thesis: code-switched ASR is an open research problem, and
+Whisper's single-language-token design is the root limitation. Options, in increasing effort:
+
+1. **Upgrade to large-v3/turbo** (§4.1) — partial fix, zero work. Larger Whisper models
+   transcribe embedded English inside Arabic sentences much more reliably.
+2. **Segment-level two-pass decoding** (engineering mitigation, no new model): split the
+   clip on VAD pauses, run language detection per segment, transcribe each segment with its
+   own language token, stitch transcripts. Helps "sentence in Arabic, sentence in English";
+   does NOT help intra-sentence mixing. ~1 day of work in `stt.py`.
+3. **Fine-tune Whisper on code-switched corpora** — the research-grade answer and the natural
+   thesis extension (pairs with the existing "fine-tuning" future-work item). Public datasets:
+   - **ArzEn / ArzEn-ST** — Egyptian Arabic–English code-switched speech (the standard CS benchmark)
+   - **Mixat** — Emirati Arabic–English code-switched dataset
+   - **QASR** — 2,000 h Aljazeera; contains natural MSA-with-English-terms segments
+   A LoRA fine-tune of `whisper-small`/`medium` on ArzEn+Mixat, evaluated with per-language
+   WER + code-switch-point accuracy, would be a publishable thesis chapter on its own.
+4. ❌ **Cloud ASR with native CS support** (ElevenLabs Scribe, Google Chirp 2, Azure STT) —
+   several handle mixed ar/en well, but using them breaks the project's core self-hosted /
+   privacy / zero-per-request-cost thesis claims (§1 of the spec). Mention as comparison
+   baseline in the thesis at most; do not ship.
+
+### 4.4 Recommendation (when this is picked up)
+
+Ordered plan: **(1)** add `medium` + `large-v3-turbo` to the §4.6 ablation and pick by
+measured ar-WER on the project's own 250-utterance dataset → **(2)** if dialect WER is still
+the bottleneck, swap in a dialect fine-tuned Whisper checkpoint via ct2 conversion (no code
+change) → **(3)** if code-switching specifically is the bottleneck and thesis time allows,
+the ArzEn/Mixat LoRA fine-tune is the highest-value academic contribution available here.

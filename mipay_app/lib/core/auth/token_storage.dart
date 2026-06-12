@@ -42,6 +42,9 @@ class TokenStorage {
     ]);
   }
 
+  static Future<void> updateUserData(Map<String, dynamic> user) =>
+      _storage.write(key: _kUser, value: jsonEncode(user));
+
   static Future<void> clear() async {
     await _storage.deleteAll();
   }

@@ -93,6 +93,22 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> updateProfile({
+    String? displayName,
+    String? defaultCurrency,
+    String? locale,
+  }) async {
+    final current = state;
+    if (current is! AuthAuthenticated) return;
+    final updated = await _repo.updateProfile(
+      displayName: displayName,
+      defaultCurrency: defaultCurrency,
+      locale: locale,
+    );
+    await TokenStorage.updateUserData(updated.toJson());
+    state = AuthAuthenticated(updated);
+  }
+
   Future<void> logout() async {
     await TokenStorage.clear();
     state = const AuthUnauthenticated();

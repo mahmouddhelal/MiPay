@@ -50,6 +50,9 @@
   "defaultCurrency": "العملة الافتراضية",
   "english": "الإنجليزية",
   "arabic": "العربية",
+  "profile": "الملف الشخصي",
+  "account": "الحساب",
+  "changesSaved": "تم حفظ التغييرات",
 
   "noTransactions": "لا توجد معاملات بعد",
   "orTypeInstead": "أو اكتبها بدلاً من ذلك…",
