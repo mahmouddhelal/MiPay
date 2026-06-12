@@ -28,6 +28,7 @@ dependencies:
   # Audio recording
   record: ^6.1.1
   permission_handler: ^11.3.1
+  path_provider: ^2.1.4
 
   # Charts
   fl_chart: ^0.69.0

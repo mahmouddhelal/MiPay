@@ -81,6 +81,9 @@ class TransactionDraft {
 class TransactionFilter {
   const TransactionFilter({this.month, this.category, this.type});
 
+  factory TransactionFilter.forMonth(DateTime d) => TransactionFilter(
+      month: '${d.year}-${d.month.toString().padLeft(2, '0')}');
+
   final String? month; // 'YYYY-MM'
   final String? category;
   final String? type; // 'expense' | 'income'

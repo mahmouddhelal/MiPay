@@ -52,6 +52,8 @@
   "arabic": "العربية",
 
   "noTransactions": "لا توجد معاملات بعد",
+  "orTypeInstead": "أو اكتبها بدلاً من ذلك…",
+  "recentTransactions": "آخر المعاملات",
   "filterByMonth": "الشهر",
   "filterByCategory": "الفئة",
   "allCategories": "كل الفئات",
