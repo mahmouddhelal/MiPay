@@ -2,14 +2,21 @@
 Auth integration tests — require a running Postgres DB (set DATABASE_URL in .env).
 Run with: docker compose exec api pytest tests/test_auth.py -v
 """
+import uuid
+
 import pytest
 from httpx import AsyncClient
 
 
+def _email(prefix: str) -> str:
+    return f"{prefix}-{uuid.uuid4().hex[:8]}@example.com"
+
+
 @pytest.mark.asyncio
 async def test_register_success(client: AsyncClient) -> None:
+    email = _email("alice")
     r = await client.post("/api/v1/auth/register", json={
-        "email": "alice@example.com",
+        "email": email,
         "password": "password123",
         "display_name": "Alice",
     })
@@ -17,13 +24,13 @@ async def test_register_success(client: AsyncClient) -> None:
     data = r.json()
     assert "access_token" in data
     assert "refresh_token" in data
-    assert data["user"]["email"] == "alice@example.com"
+    assert data["user"]["email"] == email
     assert "password_hash" not in data["user"]
 
 
 @pytest.mark.asyncio
 async def test_register_duplicate_email(client: AsyncClient) -> None:
-    payload = {"email": "bob@example.com", "password": "password123", "display_name": "Bob"}
+    payload = {"email": _email("bob"), "password": "password123", "display_name": "Bob"}
     await client.post("/api/v1/auth/register", json=payload)
     r = await client.post("/api/v1/auth/register", json=payload)
     assert r.status_code == 409
@@ -33,7 +40,7 @@ async def test_register_duplicate_email(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_register_short_password(client: AsyncClient) -> None:
     r = await client.post("/api/v1/auth/register", json={
-        "email": "carol@example.com",
+        "email": _email("carol"),
         "password": "short",
         "display_name": "Carol",
     })
@@ -42,13 +49,14 @@ async def test_register_short_password(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_login_success(client: AsyncClient) -> None:
+    email = _email("dave")
     await client.post("/api/v1/auth/register", json={
-        "email": "dave@example.com",
+        "email": email,
         "password": "password123",
         "display_name": "Dave",
     })
     r = await client.post("/api/v1/auth/login", json={
-        "email": "dave@example.com",
+        "email": email,
         "password": "password123",
     })
     assert r.status_code == 200
@@ -57,13 +65,14 @@ async def test_login_success(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient) -> None:
+    email = _email("eve")
     await client.post("/api/v1/auth/register", json={
-        "email": "eve@example.com",
+        "email": email,
         "password": "password123",
         "display_name": "Eve",
     })
     r = await client.post("/api/v1/auth/login", json={
-        "email": "eve@example.com",
+        "email": email,
         "password": "wrongpassword",
     })
     assert r.status_code == 401
@@ -73,13 +82,14 @@ async def test_login_wrong_password(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_protected_route_no_token(client: AsyncClient) -> None:
     r = await client.get("/api/v1/users/me")
-    assert r.status_code == 403  # HTTPBearer raises 403 when header is absent
+    assert r.status_code in (401, 403)  # HTTPBearer: 403 on older FastAPI, 401 on newer
 
 
 @pytest.mark.asyncio
 async def test_protected_route_with_token(client: AsyncClient) -> None:
+    email = _email("frank")
     reg = await client.post("/api/v1/auth/register", json={
-        "email": "frank@example.com",
+        "email": email,
         "password": "password123",
         "display_name": "Frank",
     })
@@ -87,13 +97,13 @@ async def test_protected_route_with_token(client: AsyncClient) -> None:
 
     r = await client.get("/api/v1/users/me", headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
-    assert r.json()["email"] == "frank@example.com"
+    assert r.json()["email"] == email
 
 
 @pytest.mark.asyncio
 async def test_refresh_token(client: AsyncClient) -> None:
     reg = await client.post("/api/v1/auth/register", json={
-        "email": "grace@example.com",
+        "email": _email("grace"),
         "password": "password123",
         "display_name": "Grace",
     })
@@ -109,7 +119,7 @@ async def test_refresh_token(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_refresh_token_reuse_rejected(client: AsyncClient) -> None:
     reg = await client.post("/api/v1/auth/register", json={
-        "email": "henry@example.com",
+        "email": _email("henry"),
         "password": "password123",
         "display_name": "Henry",
     })

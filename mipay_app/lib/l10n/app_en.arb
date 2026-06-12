@@ -42,6 +42,7 @@
   "uploading": "Uploading…",
 
   "confirmTransaction": "Confirm Transaction",
+  "addTransaction": "Add Transaction",
   "needsReview": "Some fields need your attention",
   "extractionFailed": "Could not extract — enter manually",
   "transcript": "Transcript",

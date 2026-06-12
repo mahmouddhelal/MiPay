@@ -22,8 +22,7 @@ from app.core.config import settings
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Import models here so Alembic detects their tables for autogenerate.
-from app.models import user, category  # noqa: F401  — Phase 1
-# from app.models import transaction   # uncomment in Phase 2
+from app.models import user, category, transaction  # noqa: F401
 
 target_metadata = Base.metadata
 

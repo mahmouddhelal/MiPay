@@ -41,6 +41,7 @@
   "uploading": "جاري الرفع…",
 
   "confirmTransaction": "تأكيد المعاملة",
+  "addTransaction": "إضافة معاملة",
   "needsReview": "بعض الحقول تحتاج مراجعة",
   "extractionFailed": "تعذّر الاستخراج — أدخل يدوياً",
   "transcript": "النص المفرَّغ",

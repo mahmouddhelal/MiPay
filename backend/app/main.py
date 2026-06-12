@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -7,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.v1.router import router as v1_router
+from app.services.stt import STTService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,9 +16,10 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Phase 3: load faster-whisper model here (app/services/stt.py)
-    app.state.whisper_model = None
-    logger.info("MiPay API started (Whisper not loaded — will be wired in Phase 3)")
+    # Load Whisper once at startup (§4.1) — first run downloads the weights
+    # (~466 MB for `small`) into the whisper_models volume.
+    app.state.whisper_model = await asyncio.to_thread(STTService)
+    logger.info("MiPay API started")
     yield
     app.state.whisper_model = None
 
