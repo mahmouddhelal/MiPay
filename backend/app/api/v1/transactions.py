@@ -13,6 +13,7 @@ from app.core.exceptions import AppError
 from app.db.session import get_db
 from app.models.transaction import Transaction
 from app.schemas.transaction import (
+    BatchTransactionCreate,
     ExtractTextRequest,
     TransactionCreate,
     TransactionListOut,
@@ -58,7 +59,9 @@ def _to_response(result: PipelineResult) -> VoiceExtractionResult:
         status=result.status,
         transcript=result.transcript,
         detected_language=result.detected_language,
-        extraction=asdict(result.extraction) if result.extraction else None,
+        extractions=[
+            {"status": item.status, **asdict(item.extraction)} for item in result.items
+        ],
         timing_ms=result.timing_ms,
     )
 
@@ -112,6 +115,22 @@ async def create_transaction(
     await db.commit()
     await db.refresh(tx)
     return TransactionOut.model_validate(tx)
+
+
+@router.post("/batch", response_model=list[TransactionOut], status_code=201)
+async def create_transactions_batch(
+    body: BatchTransactionCreate,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> list[TransactionOut]:
+    """Save every transaction from one confirm screen in a single commit (all-or-
+    nothing). Backs the multi-transaction "Save All" action."""
+    txs = [Transaction(user_id=current_user.id, **item.model_dump()) for item in body.items]
+    db.add_all(txs)
+    await db.commit()
+    for tx in txs:
+        await db.refresh(tx)
+    return [TransactionOut.model_validate(tx) for tx in txs]
 
 
 @router.get("", response_model=TransactionListOut)

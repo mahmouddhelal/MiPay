@@ -6,11 +6,16 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# The 17 category keys from MIPAY_SPEC.md §4.3 — kept in sync with the DB seed
+# 29 category keys (17 original + 12 Egyptian additions) — kept in sync with DB
 CATEGORY_KEYS = frozenset({
+    # original 17
     "groceries", "restaurants", "transport", "fuel", "shopping", "bills",
     "rent", "health", "education", "entertainment", "travel", "personal_care",
     "gifts_donations", "salary", "business", "transfer_in", "other",
+    # 12 new Egyptian categories (migration 0003)
+    "coffee", "internet_mobile", "subscriptions", "household", "tuition",
+    "clothes", "pets", "insurance", "savings", "transfer_out",
+    "freelance", "investments",
 })
 
 
@@ -86,7 +91,10 @@ class TransactionListOut(BaseModel):
 
 # ── Voice/text extraction (§5.2 response shape + FEATURES.md §2.2) ──────────
 
-class ExtractionOut(BaseModel):
+class ExtractionItem(BaseModel):
+    """One extracted transaction, with its own review status. A single utterance
+    may yield several of these (e.g. "coffee 50, croissant 100, dad sent 200")."""
+    status: Literal["ok", "needs_review"]
     transaction_type: str | None
     amount: float | None
     currency: str
@@ -97,11 +105,18 @@ class ExtractionOut(BaseModel):
 
 
 class VoiceExtractionResult(BaseModel):
+    # Top-level status: "failed" if no transactions were extracted; "needs_review"
+    # if any item needs review; otherwise "ok".
     status: Literal["ok", "needs_review", "failed"]
     transcript: str
     detected_language: str | None
-    extraction: ExtractionOut | None
+    extractions: list[ExtractionItem]
     timing_ms: dict[str, int]
+
+
+class BatchTransactionCreate(BaseModel):
+    """Body for POST /transactions/batch — saves all of one confirm screen at once."""
+    items: list[TransactionCreate] = Field(min_length=1, max_length=50)
 
 
 class ExtractTextRequest(BaseModel):

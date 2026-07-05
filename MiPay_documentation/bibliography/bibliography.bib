@@ -1,0 +1,420 @@
+% ============================================================================
+%  MiPay — Bibliography
+%  Grouped: (1) Speech recognition  (2) Transformers & LLMs  (3) Prompting,
+%  structured decoding & efficient inference  (4) Arabic & multilingual NLP
+%  (5) Evaluation metrics  (6) Voice assistants / fintech / privacy
+%  (7) Frameworks & software tools
+% ============================================================================
+
+% ---------- (1) Speech recognition --------------------------------------------
+
+@inproceedings{radford2023whisper,
+  author    = {Radford, Alec and Kim, Jong Wook and Xu, Tao and Brockman, Greg and McLeavey, Christine and Sutskever, Ilya},
+  title     = {Robust Speech Recognition via Large-Scale Weak Supervision},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
+  pages     = {28492--28518},
+  year      = {2023},
+  publisher = {PMLR},
+  note      = {arXiv:2212.04356}
+}
+
+@article{baevski2020wav2vec,
+  author  = {Baevski, Alexei and Zhou, Henry and Mohamed, Abdelrahman and Auli, Michael},
+  title   = {{wav2vec 2.0}: A Framework for Self-Supervised Learning of Speech Representations},
+  journal = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume  = {33},
+  pages   = {12449--12460},
+  year    = {2020}
+}
+
+@inproceedings{graves2006ctc,
+  author    = {Graves, Alex and Fern{\'a}ndez, Santiago and Gomez, Faustino and Schmidhuber, J{\"u}rgen},
+  title     = {Connectionist Temporal Classification: Labelling Unsegmented Sequence Data with Recurrent Neural Networks},
+  booktitle = {Proceedings of the 23rd International Conference on Machine Learning (ICML)},
+  pages     = {369--376},
+  year      = {2006}
+}
+
+@article{hinton2012deep,
+  author  = {Hinton, Geoffrey and Deng, Li and Yu, Dong and Dahl, George E. and Mohamed, Abdel-rahman and Jaitly, Navdeep and Senior, Andrew and Vanhoucke, Vincent and Nguyen, Patrick and Sainath, Tara N. and Kingsbury, Brian},
+  title   = {Deep Neural Networks for Acoustic Modeling in Speech Recognition},
+  journal = {IEEE Signal Processing Magazine},
+  volume  = {29},
+  number  = {6},
+  pages   = {82--97},
+  year    = {2012},
+  publisher = {IEEE}
+}
+
+@inproceedings{povey2011kaldi,
+  author    = {Povey, Daniel and Ghoshal, Arnab and Boulianne, Gilles and Burget, Luk{\'a}{\v{s}} and Glembek, Ond{\v{r}}ej and Goel, Nagendra and Hannemann, Mirko and Motl{\'\i}{\v{c}}ek, Petr and Qian, Yanmin and Schwarz, Petr and Silovsk{\'y}, Jan and Stemmer, Georg and Vesel{\'y}, Karel},
+  title     = {The {Kaldi} Speech Recognition Toolkit},
+  booktitle = {IEEE Workshop on Automatic Speech Recognition and Understanding (ASRU)},
+  year      = {2011}
+}
+
+@inproceedings{ali2016mgb2,
+  author    = {Ali, Ahmed and Bell, Peter and Glass, James and Messaoui, Yacine and Mubarak, Hamdy and Renals, Steve and Zhang, Yifan},
+  title     = {The {MGB-2} Challenge: {Arabic} Multi-Dialect Broadcast Media Recognition},
+  booktitle = {IEEE Spoken Language Technology Workshop (SLT)},
+  pages     = {279--284},
+  year      = {2016},
+  publisher = {IEEE}
+}
+
+@inproceedings{ardila2020commonvoice,
+  author    = {Ardila, Rosana and Branson, Megan and Davis, Kelly and Kohler, Michael and Meyer, Josh and Henretty, Michael and Morais, Reuben and Saunders, Lindsay and Tyers, Francis M. and Weber, Gregor},
+  title     = {Common Voice: A Massively-Multilingual Speech Corpus},
+  booktitle = {Proceedings of the 12th Language Resources and Evaluation Conference (LREC)},
+  pages     = {4218--4222},
+  year      = {2020}
+}
+
+% ---------- (2) Transformers & large language models --------------------------
+
+@inproceedings{vaswani2017attention,
+  author    = {Vaswani, Ashish and Shazeer, Noam and Parmar, Niki and Uszkoreit, Jakob and Jones, Llion and Gomez, Aidan N. and Kaiser, {\L}ukasz and Polosukhin, Illia},
+  title     = {Attention Is All You Need},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {30},
+  year      = {2017}
+}
+
+@inproceedings{devlin2019bert,
+  author    = {Devlin, Jacob and Chang, Ming-Wei and Lee, Kenton and Toutanova, Kristina},
+  title     = {{BERT}: Pre-training of Deep Bidirectional Transformers for Language Understanding},
+  booktitle = {Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics (NAACL-HLT)},
+  pages     = {4171--4186},
+  year      = {2019}
+}
+
+@article{brown2020gpt3,
+  author  = {Brown, Tom B. and Mann, Benjamin and Ryder, Nick and Subbiah, Melanie and Kaplan, Jared and Dhariwal, Prafulla and Neelakantan, Arvind and others},
+  title   = {Language Models are Few-Shot Learners},
+  journal = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume  = {33},
+  pages   = {1877--1901},
+  year    = {2020}
+}
+
+@techreport{qwen2024qwen25,
+  author      = {{Qwen Team}},
+  title       = {{Qwen2.5} Technical Report},
+  institution = {Alibaba Group},
+  year        = {2024},
+  note        = {arXiv:2412.15115}
+}
+
+@techreport{yang2024qwen2,
+  author      = {Yang, An and Yang, Baosong and Hui, Binyuan and Zheng, Bo and Yu, Bowen and Zhou, Chang and others},
+  title       = {{Qwen2} Technical Report},
+  institution = {Alibaba Group},
+  year        = {2024},
+  note        = {arXiv:2407.10671}
+}
+
+@article{touvron2023llama,
+  author  = {Touvron, Hugo and Lavril, Thibaut and Izacard, Gautier and Martinet, Xavier and Lachaux, Marie-Anne and Lacroix, Timoth{\'e}e and Rozi{\`e}re, Baptiste and others},
+  title   = {{LLaMA}: Open and Efficient Foundation Language Models},
+  journal = {arXiv preprint arXiv:2302.13971},
+  year    = {2023}
+}
+
+@article{radford2019gpt2,
+  author  = {Radford, Alec and Wu, Jeffrey and Child, Rewon and Luan, David and Amodei, Dario and Sutskever, Ilya},
+  title   = {Language Models are Unsupervised Multitask Learners},
+  journal = {OpenAI Technical Report},
+  year    = {2019}
+}
+
+@article{hochreiter1997lstm,
+  author  = {Hochreiter, Sepp and Schmidhuber, J{\"u}rgen},
+  title   = {Long Short-Term Memory},
+  journal = {Neural Computation},
+  volume  = {9},
+  number  = {8},
+  pages   = {1735--1780},
+  year    = {1997}
+}
+
+% ---------- (3) Prompting, structured decoding & efficient inference ----------
+
+@inproceedings{wei2022flan,
+  author    = {Wei, Jason and Bosma, Maarten and Zhao, Vincent Y. and Guu, Kelvin and Yu, Adams Wei and Lester, Brian and Du, Nan and Dai, Andrew M. and Le, Quoc V.},
+  title     = {Finetuned Language Models Are Zero-Shot Learners},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2022}
+}
+
+@article{ouyang2022instructgpt,
+  author  = {Ouyang, Long and Wu, Jeffrey and Jiang, Xu and Almeida, Diogo and Wainwright, Carroll and Mishkin, Pamela and Zhang, Chong and others},
+  title   = {Training Language Models to Follow Instructions with Human Feedback},
+  journal = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume  = {35},
+  pages   = {27730--27744},
+  year    = {2022}
+}
+
+@article{wei2022cot,
+  author  = {Wei, Jason and Wang, Xuezhi and Schuurmans, Dale and Bosma, Maarten and Ichter, Brian and Xia, Fei and Chi, Ed and Le, Quoc and Zhou, Denny},
+  title   = {Chain-of-Thought Prompting Elicits Reasoning in Large Language Models},
+  journal = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume  = {35},
+  pages   = {24824--24837},
+  year    = {2022}
+}
+
+@article{liu2023promptsurvey,
+  author  = {Liu, Pengfei and Yuan, Weizhe and Fu, Jinlan and Jiang, Zhengbao and Hayashi, Hiroaki and Neubig, Graham},
+  title   = {Pre-train, Prompt, and Predict: A Systematic Survey of Prompting Methods in Natural Language Processing},
+  journal = {ACM Computing Surveys},
+  volume  = {55},
+  number  = {9},
+  pages   = {1--35},
+  year    = {2023},
+  publisher = {ACM}
+}
+
+@article{willard2023outlines,
+  author  = {Willard, Brandon T. and Louf, R{\'e}mi},
+  title   = {Efficient Guided Generation for Large Language Models},
+  journal = {arXiv preprint arXiv:2307.09702},
+  year    = {2023}
+}
+
+@inproceedings{geng2023grammar,
+  author    = {Geng, Saibo and Josifoski, Martin and Peyrard, Maxime and West, Robert},
+  title     = {Grammar-Constrained Decoding for Structured {NLP} Tasks without Finetuning},
+  booktitle = {Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing (EMNLP)},
+  pages     = {10932--10952},
+  year      = {2023}
+}
+
+@inproceedings{hu2022lora,
+  author    = {Hu, Edward J. and Shen, Yelong and Wallis, Phillip and Allen-Zhu, Zeyuan and Li, Yuanzhi and Wang, Shean and Wang, Lu and Chen, Weizhu},
+  title     = {{LoRA}: Low-Rank Adaptation of Large Language Models},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2022}
+}
+
+@article{dettmers2022llmint8,
+  author  = {Dettmers, Tim and Lewis, Mike and Belkada, Younes and Zettlemoyer, Luke},
+  title   = {{LLM.int8()}: 8-bit Matrix Multiplication for Transformers at Scale},
+  journal = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume  = {35},
+  pages   = {30318--30332},
+  year    = {2022}
+}
+
+@inproceedings{frantar2023gptq,
+  author    = {Frantar, Elias and Ashkboos, Saleh and Hoefler, Torsten and Alistarh, Dan},
+  title     = {{GPTQ}: Accurate Post-Training Quantization for Generative Pre-trained Transformers},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2023}
+}
+
+% ---------- (4) Arabic & multilingual NLP -------------------------------------
+
+@inproceedings{antoun2020arabert,
+  author    = {Antoun, Wissam and Baly, Fady and Hajj, Hazem},
+  title     = {{AraBERT}: Transformer-based Model for {Arabic} Language Understanding},
+  booktitle = {Proceedings of the 4th Workshop on Open-Source Arabic Corpora and Processing Tools (OSACT), LREC},
+  pages     = {9--15},
+  year      = {2020}
+}
+
+@inproceedings{obeid2020camel,
+  author    = {Obeid, Ossama and Zalmout, Nasser and Khalifa, Salam and Taji, Dima and Oudah, Mai and Alhafni, Bashar and Inoue, Go and Eryani, Fadhl and Erdmann, Alexander and Habash, Nizar},
+  title     = {{CAMeL} Tools: An Open Source {Python} Toolkit for {Arabic} Natural Language Processing},
+  booktitle = {Proceedings of the 12th Language Resources and Evaluation Conference (LREC)},
+  pages     = {7022--7032},
+  year      = {2020}
+}
+
+@inproceedings{abdelali2016farasa,
+  author    = {Abdelali, Ahmed and Darwish, Kareem and Durrani, Nadir and Mubarak, Hamdy},
+  title     = {{Farasa}: A Fast and Furious Segmenter for {Arabic}},
+  booktitle = {Proceedings of the 2016 Conference of the North American Chapter of the Association for Computational Linguistics (NAACL): Demonstrations},
+  pages     = {11--16},
+  year      = {2016}
+}
+
+@article{sitaram2019codeswitch,
+  author  = {Sitaram, Sunayana and Chandu, Khyathi Raghavi and Rallabandi, Sai Krishna and Black, Alan W.},
+  title   = {A Survey of Code-switched Speech and Language Processing},
+  journal = {arXiv preprint arXiv:1904.00784},
+  year    = {2019}
+}
+
+@inproceedings{lample2016ner,
+  author    = {Lample, Guillaume and Ballesteros, Miguel and Subramanian, Sandeep and Kawakami, Kazuya and Dyer, Chris},
+  title     = {Neural Architectures for Named Entity Recognition},
+  booktitle = {Proceedings of NAACL-HLT},
+  pages     = {260--270},
+  year      = {2016}
+}
+
+@article{li2022ner,
+  author  = {Li, Jing and Sun, Aixin and Han, Jianglei and Li, Chenliang},
+  title   = {A Survey on Deep Learning for Named Entity Recognition},
+  journal = {IEEE Transactions on Knowledge and Data Engineering},
+  volume  = {34},
+  number  = {1},
+  pages   = {50--70},
+  year    = {2022},
+  publisher = {IEEE}
+}
+
+@inproceedings{conneau2020xlmr,
+  author    = {Conneau, Alexis and Khandelwal, Kartikay and Goyal, Naman and Chaudhary, Vishrav and Wenzek, Guillaume and Guzm{\'a}n, Francisco and Grave, Edouard and Ott, Myle and Zettlemoyer, Luke and Stoyanov, Veselin},
+  title     = {Unsupervised Cross-lingual Representation Learning at Scale},
+  booktitle = {Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics (ACL)},
+  pages     = {8440--8451},
+  year      = {2020}
+}
+
+% ---------- (5) Evaluation metrics --------------------------------------------
+
+@inproceedings{morris2004wer,
+  author    = {Morris, Andrew C. and Maier, Viktoria and Green, Phil},
+  title     = {From {WER} and {RIL} to {MER} and {WIL}: Improved Evaluation Measures for Connected Speech Recognition},
+  booktitle = {Proceedings of Interspeech},
+  year      = {2004}
+}
+
+@article{powers2011fmeasure,
+  author  = {Powers, David M. W.},
+  title   = {Evaluation: From Precision, Recall and {F}-Measure to {ROC}, Informedness, Markedness and Correlation},
+  journal = {Journal of Machine Learning Technologies},
+  volume  = {2},
+  number  = {1},
+  pages   = {37--63},
+  year    = {2011}
+}
+
+% ---------- (6) Voice assistants, fintech, privacy ----------------------------
+
+@inproceedings{kepuska2018assistants,
+  author    = {Kepuska, Veton and Bohouta, Gamal},
+  title     = {Next-Generation of Virtual Personal Assistants ({Microsoft Cortana}, {Apple Siri}, {Amazon Alexa} and {Google Home})},
+  booktitle = {IEEE 8th Annual Computing and Communication Workshop and Conference (CCWC)},
+  pages     = {99--103},
+  year      = {2018},
+  publisher = {IEEE}
+}
+
+@article{hoy2018voice,
+  author  = {Hoy, Matthew B.},
+  title   = {{Alexa}, {Siri}, {Cortana}, and More: An Introduction to Voice Assistants},
+  journal = {Medical Reference Services Quarterly},
+  volume  = {37},
+  number  = {1},
+  pages   = {81--88},
+  year    = {2018},
+  publisher = {Taylor \& Francis}
+}
+
+@techreport{worldbank2021findex,
+  author      = {Demirg{\"u}{\c{c}}-Kunt, Asli and Klapper, Leora and Singer, Dorothe and Ansar, Saniya},
+  title       = {The {Global Findex} Database 2021: Financial Inclusion, Digital Payments, and Resilience in the Age of {COVID-19}},
+  institution = {World Bank},
+  year        = {2022},
+  address     = {Washington, DC}
+}
+
+@article{mcmahan2017fedavg,
+  author  = {McMahan, Brendan and Moore, Eider and Ramage, Daniel and Hampson, Seth and Arcas, Blaise Aguera y},
+  title   = {Communication-Efficient Learning of Deep Networks from Decentralized Data},
+  journal = {Proceedings of the 20th International Conference on Artificial Intelligence and Statistics (AISTATS)},
+  pages   = {1273--1282},
+  year    = {2017}
+}
+
+@book{voigt2017gdpr,
+  author    = {Voigt, Paul and von dem Bussche, Axel},
+  title     = {The {EU} General Data Protection Regulation ({GDPR}): A Practical Guide},
+  publisher = {Springer International Publishing},
+  year      = {2017}
+}
+
+% ---------- (7) Frameworks & software tools -----------------------------------
+
+@misc{ollama2024,
+  author       = {{Ollama}},
+  title        = {{Ollama}: Get Up and Running with Large Language Models Locally},
+  year         = {2024},
+  howpublished = {\url{https://ollama.com}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{ctranslate2,
+  author       = {{OpenNMT}},
+  title        = {{CTranslate2}: Fast Inference Engine for Transformer Models},
+  year         = {2024},
+  howpublished = {\url{https://github.com/OpenNMT/CTranslate2}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{fasterwhisper,
+  author       = {{SYSTRAN}},
+  title        = {{faster-whisper}: Faster {Whisper} Transcription with {CTranslate2}},
+  year         = {2024},
+  howpublished = {\url{https://github.com/SYSTRAN/faster-whisper}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{fastapi,
+  author       = {Ram{\'\i}rez, Sebasti{\'a}n},
+  title        = {{FastAPI}: Modern, Fast (High-Performance) Web Framework for Building {APIs} with {Python}},
+  year         = {2024},
+  howpublished = {\url{https://fastapi.tiangolo.com}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{flutter,
+  author       = {{Google}},
+  title        = {{Flutter}: Build Apps for Any Screen},
+  year         = {2024},
+  howpublished = {\url{https://flutter.dev}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{sqlalchemy,
+  author       = {Bayer, Michael},
+  title        = {{SQLAlchemy}: The {Python SQL} Toolkit and Object Relational Mapper},
+  year         = {2024},
+  howpublished = {\url{https://www.sqlalchemy.org}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{dateparser,
+  author       = {{Scrapinghub}},
+  title        = {{dateparser}: Date Parsing Library for {Python}},
+  year         = {2024},
+  howpublished = {\url{https://github.com/scrapinghub/dateparser}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{jiwer,
+  author       = {Vaessen, Nik},
+  title        = {{JiWER}: A {Python} Package for Evaluating Automatic Speech Recognition},
+  year         = {2024},
+  howpublished = {\url{https://github.com/jitsi/jiwer}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{riverpod,
+  author       = {Rousselet, R{\'e}mi},
+  title        = {{Riverpod}: A Reactive Caching and Data-binding Framework for {Flutter} and {Dart}},
+  year         = {2024},
+  howpublished = {\url{https://riverpod.dev}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{postgresql,
+  author       = {{The PostgreSQL Global Development Group}},
+  title        = {{PostgreSQL}: The World's Most Advanced Open Source Relational Database},
+  year         = {2024},
+  howpublished = {\url{https://www.postgresql.org}},
+  note         = {Accessed: 2026-06-25}
+}

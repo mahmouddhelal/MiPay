@@ -5,11 +5,15 @@ import '../auth/token_storage.dart';
 import '../../features/auth/providers/auth_controller.dart';
 import 'api_exceptions.dart';
 
-const _baseUrl = 'http://192.168.1.42:8000/api/v1'; // physical device → host machine LAN IP
+/// Backend base URL. On a physical device this must be the host machine's
+/// current LAN IP (changes when the router reassigns DHCP). Emulators: use
+/// 10.0.2.2 (Android) or localhost (iOS). Single source of truth — referenced
+/// by both the authed Dio here and the plain Dio in auth_repository.dart.
+const kApiBaseUrl = 'http://192.168.1.3:8000/api/v1';
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
-    baseUrl: _baseUrl,
+    baseUrl: kApiBaseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 30),
     headers: {'Content-Type': 'application/json'},
@@ -59,7 +63,7 @@ class _AuthInterceptor extends QueuedInterceptorsWrapper {
     _isRefreshing = true;
     try {
       // Use a bare Dio to avoid running through this interceptor again
-      final refreshDio = Dio(BaseOptions(baseUrl: _baseUrl));
+      final refreshDio = Dio(BaseOptions(baseUrl: kApiBaseUrl));
       final response = await refreshDio.post(
         '/auth/refresh',
         data: {'refresh_token': refreshToken},

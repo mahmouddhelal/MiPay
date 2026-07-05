@@ -7,6 +7,7 @@ from datetime import date
 from app.services.postprocess import (
     normalize_numerals,
     postprocess,
+    postprocess_many,
     resolve_date,
 )
 
@@ -99,6 +100,35 @@ class TestResolveDate:
         assert resolved < CLIENT_DATE
         assert resolved.weekday() == 4  # Friday
 
+    def test_egyptian_mabarch_yesterday(self):
+        assert resolve_date("مبارح", CLIENT_DATE) == date(2026, 6, 11)
+
+    def test_egyptian_awel_mabarch(self):
+        assert resolve_date("اول مبارح", CLIENT_DATE) == date(2026, 6, 10)
+
+    def test_egyptian_enhardy_today(self):
+        assert resolve_date("انهارده", CLIENT_DATE) == CLIENT_DATE
+        assert resolve_date("انهاردة", CLIENT_DATE) == CLIENT_DATE
+
+    def test_egyptian_delwaqti_today(self):
+        assert resolve_date("دلوقتي", CLIENT_DATE) == CLIENT_DATE
+        assert resolve_date("دلوقتى", CLIENT_DATE) == CLIENT_DATE
+
+    def test_egyptian_last_week(self):
+        resolved = resolve_date("الاسبوع اللي فات", CLIENT_DATE)
+        assert (CLIENT_DATE - resolved).days in range(7, 14)
+
+    def test_egyptian_last_month(self):
+        resolved = resolve_date("الشهر اللي فات", CLIENT_DATE)
+        assert resolved.month == 5 and resolved.year == 2026
+
+    def test_egyptian_men_yomain(self):
+        assert resolve_date("من يومين", CLIENT_DATE) == date(2026, 6, 10)
+
+    def test_egyptian_men_osboo(self):
+        resolved = resolve_date("من اسبوع", CLIENT_DATE)
+        assert (CLIENT_DATE - resolved).days in range(7, 14)
+
     def test_unparseable_falls_back(self):
         assert resolve_date("blorptastic gibberish", CLIENT_DATE) == CLIENT_DATE
 
@@ -166,3 +196,48 @@ class TestPostprocess:
     def test_date_text_resolved(self):
         result = postprocess(_raw(date_text="أمس"), "t", CLIENT_DATE, "SAR")
         assert result.extraction.date == date(2026, 6, 11)
+
+
+# ── Multi-transaction post-processing (one utterance → many) ─────────────────
+
+class TestPostprocessMany:
+    def test_empty_list_yields_nothing(self):
+        assert postprocess_many([], CLIENT_DATE, "EGP") == []
+
+    def test_three_transactions_all_processed(self):
+        raw_list = [
+            _raw(transaction_type="expense", amount=50, currency="USD",
+                 category="restaurants", name="coffee"),
+            _raw(transaction_type="expense", amount=100, currency="USD",
+                 category="restaurants", name="croissant"),
+            _raw(transaction_type="income", amount=200, currency="USD",
+                 category="transfer_in", name="father"),
+        ]
+        results = postprocess_many(raw_list, CLIENT_DATE, "EGP")
+        assert len(results) == 3
+        assert [r.status for r in results] == ["ok", "ok", "ok"]
+        assert [r.extraction.amount for r in results] == [50, 100, 200]
+        assert results[2].extraction.transaction_type == "income"
+
+    def test_junk_item_dropped(self):
+        # An all-null stray object must not become a blank confirm card.
+        raw_list = [
+            _raw(amount=50),
+            {"transaction_type": None, "amount": None, "currency": None,
+             "category": None, "name": None, "date_text": None, "confidence": "low"},
+        ]
+        results = postprocess_many(raw_list, CLIENT_DATE, "EGP")
+        assert len(results) == 1
+        assert results[0].extraction.amount == 50
+
+    def test_per_item_needs_review(self):
+        # Missing amount on the second item → that item is needs_review, first stays ok.
+        raw_list = [_raw(amount=50), _raw(amount=None)]
+        results = postprocess_many(raw_list, CLIENT_DATE, "EGP")
+        assert len(results) == 2
+        assert results[0].status == "ok"
+        assert results[1].status == "needs_review"
+
+    def test_currency_default_applied_per_item(self):
+        results = postprocess_many([_raw(currency=None)], CLIENT_DATE, "EGP")
+        assert results[0].extraction.currency == "EGP"

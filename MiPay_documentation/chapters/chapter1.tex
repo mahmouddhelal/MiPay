@@ -1,0 +1,414 @@
+\chapter{Introduction}
+
+% Enable paragraph indentation
+\setlength{\parindent}{1em}
+
+\normalsize
+
+Money flows through modern life in dozens of small, fast events: a coffee, a
+taxi, a grocery run, a transfer from a family member, a monthly salary. Each of
+these is trivial on its own, yet collectively they determine whether a person
+understands and controls their finances. The premise of every personal-finance
+application is that if these events are \emph{recorded}, they can be summarized,
+categorized, and reflected upon. The recurring failure of those applications is
+equally simple: people will not record what is tedious to record. This thesis
+presents \textbf{MiPay}, a bilingual, voice-first personal-finance tracker
+designed around a single hypothesis---that the dominant obstacle to consistent
+expense tracking is \emph{data-entry friction}, and that conversational speech,
+processed by a self-hosted artificial-intelligence pipeline, can remove most of
+that friction while preserving the user's privacy and incurring no per-request
+cost.
+
+This chapter establishes the problem the project addresses, the background and
+motivation that make it timely, the enabling technologies, the spectrum of
+technical approaches that were considered, the challenges inherent to the task,
+and finally the contributions and organization of the thesis.
+
+\section{Problem Statement}
+
+A personal-finance application is only as useful as the data the user is willing
+to feed it. Manual transaction entry---selecting a category from a dropdown,
+typing an amount, choosing a date, naming a merchant---imposes a cognitive and
+physical cost at exactly the wrong moment: while standing at a till, sitting in a
+taxi, or walking out of a shop. The result is well documented in product
+analytics across the category: high installation rates followed by steep
+abandonment, because the marginal effort of logging each transaction exceeds the
+perceived marginal benefit.
+
+The problem is sharper still for \textbf{bilingual users in the Arab world}, the
+target population of this project. A user in the Gulf or the Levant routinely
+mixes Arabic and English within a single spoken sentence---``\,dafact 50
+riyal cala \emph{groceries} from Carrefour \emph{yesterday}\,''---a phenomenon
+known as \emph{code-switching}~\cite{sitaram2019codeswitch}. Arabic additionally
+presents right-to-left script, a rich system of dialects that diverge
+substantially from Modern Standard Arabic, and its own set of Arabic-Indic
+numerals. A finance application that is to feel natural to this population must
+therefore accept free-form bilingual speech, not constrained menu input.
+
+Concretely, the problem this thesis solves can be stated as follows:
+
+\begin{quote}
+\itshape
+Given a short, spontaneous, possibly code-switched Arabic/English voice
+utterance describing one or more financial events, automatically produce a
+structured, validated, and editable set of transaction records---each carrying a
+type, amount, currency, category, counterparty, and resolved calendar
+date---using only self-hosted, open-source models, with latency low enough for
+interactive use and with a human confirmation step that prevents any incorrect
+record from being silently persisted.
+\end{quote}
+
+\section{Background and Motivation}
+
+\subsection{The Friction Problem in Personal Finance}
+
+The behavioral economics of expense tracking are unforgiving. The benefit of a
+logged transaction is \emph{deferred and diffuse} (a better monthly summary,
+some weeks later), while the cost is \emph{immediate and concrete} (fifteen
+seconds of fiddling with a form now). Whenever cost is front-loaded and benefit
+is back-loaded, consistent behavior collapses. Reducing the per-event cost from
+fifteen seconds of structured input to two seconds of speaking therefore does
+not merely make the application more pleasant; it changes whether the core
+behavior happens at all. Global financial-inclusion data underline why lowering
+this barrier matters: account ownership and digital-payment adoption have risen
+sharply across developing economies, yet the tools for everyday money management
+remain poorly localized for Arabic speakers~\cite{worldbank2021findex}.
+
+\begin{figure}[H]
+    \centering
+    \begin{tikzpicture}[
+        field/.style={draw, rounded corners, fill=gray!10, minimum width=3.6cm, minimum height=0.8cm, font=\small, align=center},
+        stepcircle/.style={circle, draw, fill=black, text=white, minimum size=0.55cm, font=\small\bfseries},
+        panellabel/.style={font=\bfseries\large},
+        micbody/.style={rounded corners=6pt, draw, fill=black, minimum width=1.0cm, minimum height=1.8cm},
+    ]
+
+    % Panel titles
+    \node[panellabel] at (0,6) {Manual Entry};
+    \node[panellabel] at (8,6) {Voice Input};
+
+    % ---- LEFT PANEL: 5 stacked form fields, each a separate step ----
+    \foreach \i/\fieldname in {1/Amount, 2/Category, 3/Currency, 4/Date, 5/Merchant} {
+      \pgfmathsetmacro{\y}{5.2 - (\i - 1) * 1.05}
+      \node[stepcircle] at (-1.9,\y) {\i};
+      \node[field] at (0.2,\y) {\fieldname};
+    }
+    \node[font=\small\itshape] at (0.2,-0.3) {5 separate steps, roughly 15 seconds};
+
+    % ---- Divider ----
+    \draw[dashed, gray, thick] (4,6.5) -- (4,-0.8);
+
+    % ---- RIGHT PANEL: one spoken sentence -> mic -> ready transaction ----
+    \node[draw, rounded corners, fill=blue!6, text width=4.6cm, font=\small\itshape,
+          align=center, minimum height=1.2cm] (bubble) at (8,5.0)
+      {``I paid 50 riyals for groceries at Carrefour yesterday''};
+
+    \node[stepcircle] at (5.9,3.2) {1};
+    \node[micbody] (mic) at (8,3.2) {};
+    \node[text=white, font=\bfseries\small] at (8,3.2) {MIC};
+
+    \draw[-{Latex[length=2mm]}, thick] (bubble.south) -- (mic.north);
+
+    \node[draw, rounded corners, fill=green!10, minimum width=3.6cm,
+          minimum height=0.8cm, font=\small, align=center] (result) at (8,1.4)
+      {Transaction ready to confirm};
+    \draw[-{Latex[length=2mm]}, thick] (mic.south) -- (result.north);
+
+    \node[font=\small\itshape] at (8,-0.3) {1 step, roughly 2 seconds};
+
+    \end{tikzpicture}
+    \caption[Data-entry friction: manual form versus voice input]{Data-entry
+    friction compared. Manual entry requires the user to traverse five separate
+    interactive fields (amount, category, currency, date, merchant) for every
+    transaction, whereas voice input collapses the interaction to a single tap
+    and a spoken sentence, deferring all structuring to the AI pipeline.}
+    \label{fig:friction}
+\end{figure}
+
+\subsection{Why Voice, and Why Now}
+
+Two independent trends make a voice-first design viable in a way it was not a few
+years ago. First, \textbf{automatic speech recognition (ASR)} has crossed a
+quality threshold for multilingual, accented, and noisy input. The Whisper family
+of models, trained on 680{,}000 hours of weakly supervised multilingual
+audio~\cite{radford2023whisper}, transcribes Arabic and English---and mixtures of
+the two---at a level that was previously the exclusive domain of large commercial
+services. Second, \textbf{open-weight large language models (LLMs)} have made it
+possible to perform robust natural-language understanding \emph{locally}. A
+7-billion-parameter instruction-tuned model such as
+Qwen2.5-7B-Instruct~\cite{qwen2024qwen25} can follow detailed extraction
+instructions across languages while running on a commodity workstation. The
+conjunction of these two trends is what enables a privacy-preserving,
+zero-marginal-cost, self-hosted voice pipeline; neither alone would suffice.
+
+Voice assistants themselves are not new---Siri, Alexa, and Google Assistant
+popularized the modality~\cite{hoy2018voice,kepuska2018assistants}---but they are
+overwhelmingly cloud-dependent and general-purpose. MiPay differs in being
+\emph{domain-specific}, \emph{bilingual by design}, and \emph{self-hosted}, which
+turns the modality from a convenience into a defensible engineering and research
+contribution.
+
+\subsection{The Bilingual and Code-Switching Challenge}
+
+Arabic is the native language of roughly 400 million people and is, from a
+computational standpoint, a high-difficulty language: it is morphologically rich,
+diglossic (a formal written standard coexisting with many spoken dialects), and
+written in a cursive right-to-left script with optional
+diacritics~\cite{antoun2020arabert,obeid2020camel}. Spoken financial language in
+the region is rarely ``pure'' anything: amounts may be spoken in Arabic while the
+merchant name is English; the currency word \emph{riyal} maps to different ISO
+codes depending on national context; and Arabic-Indic digits appear alongside
+Western digits. A system that treats Arabic and English as two separate,
+switchable pipelines will fail on the most natural utterances. MiPay instead
+treats code-switched bilingual speech as the \emph{default} case and designs
+every stage of the pipeline---transcription, extraction, and
+post-processing---to tolerate it.
+
+\subsection{Gap in Existing Solutions}
+
+Existing solutions fall into three groups, each with a structural gap.
+\textbf{Commercial budgeting apps} (e.g., the well-known Western expense
+trackers) are built around manual or bank-feed input and offer little or no
+Arabic voice support; bank-feed integration is moreover largely unavailable in
+much of the target region. \textbf{General voice assistants} can transcribe
+speech but do not produce structured, persisted financial records, and they ship
+the user's audio to remote servers. \textbf{Cloud AI ``wrappers''}---thin
+applications that forward audio and text to paid speech and language APIs---can
+in principle produce structured output, but they incur per-request monetary cost,
+surrender user financial data to third parties, and, from an academic standpoint,
+contribute no model-selection or evaluation methodology of their own. The gap
+MiPay fills is the intersection: \emph{structured financial extraction, from
+bilingual voice, entirely on self-hosted open models, with measurable quality.}
+
+\subsection{Why This Project Matters}
+
+Beyond the immediate product, the project matters for three reasons. From a
+\textbf{user perspective}, it lowers the behavioral barrier to financial
+self-awareness for an under-served bilingual population. From an
+\textbf{engineering perspective}, it demonstrates a complete,
+production-shaped, privacy-preserving AI system---speech, language, persistence,
+and mobile UI---assembled entirely from open components and reproducible with a
+single \texttt{docker compose up}. From a \textbf{research perspective}, the
+self-hosted choice is what makes the work a thesis rather than an integration
+exercise: it forces explicit model selection, exposes measurable metrics (Word
+Error Rate, field-level F\textsubscript{1}), and admits principled ablation
+studies (Section~\ref{sec:ch1-contributions}).
+
+\section{Project Aim and Objectives}
+
+The \textbf{aim} of the project is to design, implement, and evaluate a
+bilingual, voice-first personal-finance tracker whose AI pipeline is entirely
+self-hosted and open-source. This aim decomposes into the following
+\textbf{objectives}:
+
+\begin{enumerate}[label=\textbf{O\arabic*.}, leftmargin=*]
+    \item Design an end-to-end pipeline that converts a bilingual voice utterance
+    into one or more structured, validated transaction records.
+    \item Select and justify an open-source ASR model and an open-weight LLM that
+    meet quality targets on commodity hardware without a GPU.
+    \item Guarantee machine-parseable extraction output through JSON-schema
+    constrained decoding, eliminating format-level failure.
+    \item Implement a deterministic, unit-tested post-processing layer for the
+    sub-tasks at which LLMs are unreliable (numeral normalization, relative-date
+    resolution, currency defaulting, and confidence-based review routing).
+    \item Build a cross-platform mobile client with full Arabic (right-to-left)
+    and English (left-to-right) localization and a human-in-the-loop confirmation
+    step.
+    \item Construct a labeled bilingual evaluation corpus and a reproducible
+    evaluation harness, and report transcription and extraction quality with
+    ablation studies.
+\end{enumerate}
+
+\section{Scope and Limitations}
+
+The minimum viable product targets the core loop---record, transcribe, extract,
+confirm, save---together with manual transaction management, a bilingual
+interface, transaction listing with filters, and a simple monthly dashboard. The
+following are deliberately \emph{out of scope} for this work and are revisited as
+future directions in Chapter~6: budgets, savings goals, recurring-transaction
+detection, push notifications, receipt OCR, bank integrations, offline-first
+synchronization, multi-currency conversion, and social features. Limiting scope
+in this way keeps the thesis focused on its academic core---the self-hosted AI
+pipeline and its evaluation---rather than on breadth of product features.
+
+\section{Overview of the Enabling Technologies}
+
+\subsection{Automatic Speech Recognition}
+
+Modern ASR has moved from hybrid hidden-Markov-model/deep-neural-network
+systems~\cite{hinton2012deep,povey2011kaldi} through self-supervised acoustic
+representation learning~\cite{baevski2020wav2vec} to large, weakly supervised
+sequence-to-sequence transformers. Whisper~\cite{radford2023whisper} belongs to
+the last category: an encoder--decoder transformer~\cite{vaswani2017attention}
+trained to map log-Mel spectrograms directly to text tokens across 99 languages,
+with robustness to accent and background noise that emerges from the sheer scale
+and diversity of its training data. MiPay uses Whisper through
+\texttt{faster-whisper}~\cite{fasterwhisper}, which runs the same weights on the
+CTranslate2 inference engine~\cite{ctranslate2} with 8-bit
+quantization~\cite{dettmers2022llmint8}, achieving roughly a four-fold speedup on
+CPU at negligible accuracy cost. The technology is examined in detail in
+Chapter~4.
+
+\subsection{Large Language Models for Information Extraction}
+
+The task of turning ``I paid fifty riyals for groceries at Carrefour yesterday''
+into a typed record is an \emph{information-extraction} problem. Historically this
+was approached with hand-written grammars or with supervised sequence-labeling
+models such as BiLSTM-CRF architectures~\cite{lample2016ner,li2022ner}, both of
+which require either brittle rules or large labeled corpora. Instruction-tuned
+LLMs~\cite{wei2022flan,ouyang2022instructgpt} changed the economics: a single
+well-designed prompt with a handful of in-context
+examples~\cite{brown2020gpt3} can perform the extraction across languages and
+dialects with no task-specific training data. MiPay adopts this generative,
+few-shot approach using a locally hosted open-weight
+model~\cite{qwen2024qwen25}, and rigorously bounds its failure modes with the
+techniques described next.
+
+\subsection{Constrained Decoding}
+
+A generative model asked to ``answer in JSON'' will, some fraction of the time,
+emit malformed JSON, hallucinate extra keys, or choose values outside the allowed
+set. \emph{Constrained} (or \emph{guided}) decoding eliminates this by masking,
+at every generation step, any token that would violate a supplied grammar or JSON
+schema~\cite{willard2023outlines,geng2023grammar}. The output is then
+\emph{guaranteed} to be syntactically valid and schema-conformant. MiPay relies
+on this guarantee: the LLM is constrained to emit exactly the project's
+transaction schema, so the application never needs to defend against unparseable
+model output, and enum fields such as \texttt{currency} and \texttt{category} can
+only take legal values.
+
+\section{Approaches to Spoken-Language Understanding}
+
+Several families of methods could, in principle, perform the extraction stage.
+This section surveys them and explains the hybrid design MiPay adopts.
+
+\subsection{Rule-Based and Grammar Methods}
+
+The earliest and simplest approach is to write explicit rules: regular
+expressions for amounts, keyword lists for categories, and pattern grammars for
+dates. Rules are transparent, fast, and require no training, but they are brittle
+in exactly the dimensions that matter here---dialectal variation, code-switching,
+and the combinatorial diversity of natural phrasing. A regex that captures
+``paid 50 for groceries'' will miss ``groceries ran me about fifty'' and will be
+defeated entirely by Arabic dialect. Rules cannot scale to the linguistic space
+of the target users.
+
+\subsection{Supervised Sequence Labeling}
+
+A second approach treats extraction as token classification: label each word of
+the transcript with a tag (amount, merchant, date, \dots) using a model such as
+BiLSTM-CRF~\cite{lample2016ner} or a fine-tuned transformer encoder like
+AraBERT~\cite{antoun2020arabert} or multilingual
+BERT/XLM-R~\cite{devlin2019bert,conneau2020xlmr}. This is the classical
+named-entity-recognition formulation~\cite{li2022ner} and can be very accurate.
+Its decisive drawback for this project is \emph{data}: supervised labeling needs
+thousands of annotated, domain-specific, bilingual financial utterances, which do
+not exist and would be expensive to create. MiPay therefore reserves this
+approach for future work---fine-tuning on user-corrected data, once the product
+has accumulated it (Chapter~6).
+
+\subsection{Generative LLM Extraction}
+
+The third approach, and the one adopted, uses a generative instruction-tuned LLM
+to read the transcript and emit the structured record directly. With few-shot
+prompting~\cite{brown2020gpt3} and constrained
+decoding~\cite{willard2023outlines}, this method needs no task-specific training
+data, handles dialect and code-switching natively by virtue of the model's
+multilingual pre-training, and produces guaranteed-valid structured output. Its
+risks---occasional semantic errors and a tendency to perform unreliable
+arithmetic such as date math---are contained by the post-processing layer and the
+human confirmation step.
+
+\subsection{The Hybrid Approach Adopted by MiPay}
+\label{sec:ch1-hybrid}
+
+MiPay's extraction stage is deliberately \emph{hybrid}: a generative LLM does the
+linguistically hard, fuzzy work (understanding intent across languages and
+mapping it to fields), while a \emph{deterministic Python layer} does the
+precise, testable work the LLM does badly. In particular, the LLM is instructed
+to copy the \emph{raw} date phrase from the utterance rather than to compute a
+calendar date; a deterministic resolver then converts ``yesterday'' or its
+dialectal Arabic equivalents into an absolute ISO date anchored on the device's
+current date. This division of labor---fuzzy understanding by the model, exact
+computation by code---is a recurring theme of the system and a central design
+argument of the thesis.
+
+\section{Problems and Challenges}
+
+\begin{description}[leftmargin=1.5em, style=nextline]
+    \item[Dialectal and code-switched input.] The pipeline must accept Modern
+    Standard Arabic, Gulf/Egyptian/Levantine dialects, English, and arbitrary
+    mixtures, where a single sentence may switch language mid-clause.
+    \item[Numeral and currency ambiguity.] Amounts may be spoken or written in
+    Arabic-Indic numerals, and a single spoken currency word (e.g., \emph{dinar},
+    \emph{riyal}) maps to different ISO codes depending on national context.
+    \item[Relative-date resolution.] Utterances reference dates relatively
+    (``yesterday'', ``last Friday'', dialectal ``\emph{ams}'',
+    ``\emph{awwal ams}''); these must be resolved to absolute dates reliably and
+    testably---something LLMs do poorly and deterministic code does well.
+    \item[Latency on commodity hardware.] The reference deployment is CPU-only
+    with 16\,GB of RAM and no GPU, yet the end-to-end voice round-trip must stay
+    within an interactive budget.
+    \item[Guaranteeing valid output.] The application must never crash on or
+    silently corrupt malformed model output, which constrained decoding addresses
+    by construction.
+    \item[Multi-transaction utterances.] A single sentence may describe several
+    transactions (``coffee for 50, a croissant for 100, and my father sent me
+    200''), which the pipeline must split into independent records.
+    \item[Privacy.] Financial audio is sensitive; the design deletes audio
+    immediately after transcription and keeps all inference on the operator's
+    machine.
+\end{description}
+
+\section{Contributions}
+\label{sec:ch1-contributions}
+
+The principal contributions of this thesis are:
+
+\begin{enumerate}[label=\textbf{C\arabic*.}, leftmargin=*]
+    \item A complete, reproducible, \textbf{fully self-hosted} bilingual
+    voice-to-transaction pipeline assembled from open-source ASR and LLM
+    components, with zero per-request cost and no third-party data sharing.
+    \item A \textbf{constrained-decoding extraction design} that guarantees
+    schema-valid structured output and supports multi-transaction utterances.
+    \item A \textbf{deterministic post-processing layer}---numeral normalization,
+    dialect-aware relative-date resolution, currency defaulting, and
+    confidence-based \texttt{needs\_review} routing---that is independently
+    unit-tested and constitutes a reusable, testable contribution.
+    \item A \textbf{bilingual evaluation corpus} of more than 260 labeled
+    utterances (Arabic, English, and code-switched, including multi-transaction
+    cases) and a \textbf{reproducible evaluation harness} reporting Word Error
+    Rate and per-field extraction accuracy/F\textsubscript{1} under
+    gold-transcript and end-to-end conditions.
+    \item A set of \textbf{ablation studies} quantifying the effect of ASR model
+    size, LLM size, and few-shot versus zero-shot prompting on extraction
+    quality.
+    \item A \textbf{cross-platform mobile client} with complete Arabic
+    right-to-left and English localization, three input modes, and a
+    human-in-the-loop confirmation workflow.
+\end{enumerate}
+
+\section{Thesis Organization}
+
+The remainder of this thesis is organized as follows.
+\textbf{Chapter~2 (Related Work)} reviews the academic and engineering literature
+on speech recognition, large language models, structured extraction and
+constrained decoding, and Arabic/multilingual NLP, and positions MiPay relative
+to comparable systems.
+\textbf{Chapter~3 (System Analysis)} specifies the functional and
+non-functional requirements and presents the system models---context, data-flow,
+entity-relationship, use-case, class, activity, and sequence diagrams.
+\textbf{Chapter~4 (Implementation)} describes the realized system in depth: the
+evaluation dataset, the speech-to-text service, the constrained LLM extractor,
+the deterministic post-processing layer, the backend and mobile architectures,
+and the security model.
+\textbf{Chapter~5 (Experimental Results)} defines the evaluation methodology and
+metrics and reports transcription and extraction results together with the
+ablation studies.
+\textbf{Chapter~6 (Conclusion and Future Work)} summarizes the contributions,
+states the project's limitations honestly, and lays out a concrete upgrade
+path---newer and larger speech and language models, and task-specific
+fine-tuning on user-corrected data.
+Finally, the \textbf{Appendices} provide a technical implementation reference,
+the full extraction prompt and schema, representative source listings, and the
+user-interface gallery.

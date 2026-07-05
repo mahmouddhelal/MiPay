@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
 import '../../../core/utils/formatters.dart';
+import '../../../features/dashboard/providers/summary_provider.dart';
 import '../data/transactions_repository.dart';
 import '../models/transaction.dart';
 import '../providers/transactions_provider.dart';
@@ -34,15 +35,31 @@ class TransactionsScreen extends ConsumerWidget {
           Expanded(
             child: txAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text('$e', textAlign: TextAlign.center),
-                ),
-              ),
+              error: (e, _) => const SizedBox.shrink(),
               data: (txs) {
                 if (txs.isEmpty) {
-                  return Center(child: Text(l10n.noTransactions));
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.receipt_long_outlined,
+                            size: 64,
+                            color: Theme.of(context).colorScheme.outlineVariant),
+                        const SizedBox(height: 16),
+                        Text(l10n.noTransactions,
+                            style: Theme.of(context).textTheme.bodyLarge),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const TransactionFormScreen()),
+                          ),
+                          icon: const Icon(Icons.add),
+                          label: Text(l10n.addTransaction),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 final groups = groupByDay(txs);
                 return RefreshIndicator(
@@ -187,7 +204,7 @@ class _DayHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final locale = Localizations.localeOf(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 4),
       child: Text(
         formatDate(day, locale.toString()),
         style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -239,6 +256,7 @@ class _DismissibleTile extends ConsumerWidget {
           await ref.read(transactionsRepositoryProvider).delete(transaction.id);
         } finally {
           ref.invalidate(transactionsProvider);
+          ref.invalidate(summaryProvider);
         }
       },
       child: TransactionTile(

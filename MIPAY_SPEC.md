@@ -251,25 +251,45 @@ language_probability = info.language_probability
 
 ### 4.3 Extraction JSON schema (verbatim — use exactly this)
 
+A single utterance may describe **several** transactions ("coffee 50, croissant 100, and
+my dad sent me 200" → three). The model therefore returns a **list** of per-transaction
+objects under a `transactions` key. The per-transaction object is unchanged.
+
 ```json
 {
   "type": "object",
   "properties": {
-    "transaction_type": { "type": ["string", "null"], "enum": ["expense", "income", null] },
-    "amount":           { "type": ["number", "null"] },
-    "currency":         { "type": ["string", "null"],
-                          "enum": ["SAR", "USD", "EUR", "EGP", "AED", "KWD", "QAR", "BHD", "OMR", "JOD", "IQD", "SYP", "YER", "LYD", "TND", "DZD", "MAD", "SDG", "LBP", null] },
-    "category":         { "type": ["string", "null"],
-                          "enum": ["groceries", "restaurants", "transport", "fuel", "shopping", "bills", "rent", "health", "education", "entertainment", "travel", "personal_care", "gifts_donations", "salary", "business", "transfer_in", "other", null] },
-    "name":             { "type": ["string", "null"] },
-    "date_text":        { "type": ["string", "null"] },
-    "confidence":       { "type": "string", "enum": ["high", "medium", "low"] }
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "transaction_type": { "type": ["string", "null"], "enum": ["expense", "income", null] },
+          "amount":           { "type": ["number", "null"] },
+          "currency":         { "type": ["string", "null"],
+                                "enum": ["SAR", "USD", "EUR", "EGP", "AED", "KWD", "QAR", "BHD", "OMR", "JOD", "IQD", "SYP", "YER", "LYD", "TND", "DZD", "MAD", "SDG", "LBP", null] },
+          "category":         { "type": ["string", "null"],
+                                "enum": ["groceries", "restaurants", "transport", "fuel", "shopping", "bills", "rent", "health", "education", "entertainment", "travel", "personal_care", "gifts_donations", "salary", "business", "transfer_in", "other", null] },
+          "name":             { "type": ["string", "null"] },
+          "date_text":        { "type": ["string", "null"] },
+          "confidence":       { "type": "string", "enum": ["high", "medium", "low"] }
+        },
+        "required": ["transaction_type", "amount", "currency", "category", "name", "date_text", "confidence"]
+      }
+    }
   },
-  "required": ["transaction_type", "amount", "currency", "category", "name", "date_text", "confidence"]
+  "required": ["transactions"]
 }
 ```
 
-**Key design point:** the LLM outputs `date_text` — the **raw date phrase from the utterance** («أمس», "last friday", "March 3rd") — NOT a resolved date. Date resolution is done deterministically in Python (§4.5). LLMs are unreliable at date arithmetic; the deterministic resolver is also a testable contribution.
+**Key design points:**
+- One utterance → a `transactions` array (length 1 for the common single-transaction case,
+  0 when no transaction is described, N for compound utterances). Each element is
+  post-processed independently and carries its own `status` (§4.5).
+- The LLM outputs `date_text` — the **raw date phrase from the utterance** («أمس», "last
+  friday", "March 3rd") — NOT a resolved date. Date resolution is done deterministically in
+  Python (§4.5). LLMs are unreliable at date arithmetic; the deterministic resolver is also a
+  testable contribution.
 
 ### 4.4 Extraction prompt (verbatim — use exactly this, few-shots included)
 
@@ -278,7 +298,16 @@ System message:
 ```
 You are a financial transaction extraction engine for a personal finance app.
 The user message is a voice-note transcript in Arabic, English, or a mix of both.
-Extract the transaction fields into JSON following the provided schema. Rules:
+Return JSON of the form {"transactions": [ ... ]} following the provided schema.
+
+- A single transcript may describe MULTIPLE transactions. Emit one object per distinct
+  transaction in the "transactions" array, in the order spoken. Split into separate
+  transactions whenever there are separate amounts or separate items/recipients
+  (e.g. "I bought coffee for 50 and a croissant for 100 and my dad sent me 200" is THREE
+  transactions). A single item with one amount is ONE transaction.
+- If the transcript describes no transaction at all, return {"transactions": []}.
+
+Per-transaction field rules:
 
 - "transaction_type": "expense" if the user paid/spent/bought, "income" if the user
   received/earned/was paid/was sent money. null only if truly impossible to tell.
@@ -310,24 +339,33 @@ Extract the transaction fields into JSON following the provided schema. Rules:
 
 Few-shot examples (send as alternating user/assistant chat messages before the real transcript):
 
+Each assistant reply is the full `{"transactions":[...]}` envelope so the model learns to
+wrap single transactions in a list and to split compound utterances.
+
 ```
 user:      دفعت خمسين ريال على البقالة من كارفور أمس
-assistant: {"transaction_type":"expense","amount":50,"currency":"SAR","category":"groceries","name":"كارفور","date_text":"أمس","confidence":"high"}
+assistant: {"transactions":[{"transaction_type":"expense","amount":50,"currency":"SAR","category":"groceries","name":"كارفور","date_text":"أمس","confidence":"high"}]}
 
 user:      I got my salary today, 4500
-assistant: {"transaction_type":"income","amount":4500,"currency":null,"category":"salary","name":"salary","date_text":"today","confidence":"high"}
+assistant: {"transactions":[{"transaction_type":"income","amount":4500,"currency":null,"category":"salary","name":"salary","date_text":"today","confidence":"high"}]}
 
 user:      حولت لي أمي مية وخمسين دولار يوم الجمعة
-assistant: {"transaction_type":"income","amount":150,"currency":"USD","category":"transfer_in","name":"أمي","date_text":"يوم الجمعة","confidence":"high"}
+assistant: {"transactions":[{"transaction_type":"income","amount":150,"currency":"USD","category":"transfer_in","name":"أمي","date_text":"يوم الجمعة","confidence":"high"}]}
 
 user:      paid like 30 bucks for the uber to the airport
-assistant: {"transaction_type":"expense","amount":30,"currency":"USD","category":"transport","name":"uber to the airport","date_text":null,"confidence":"high"}
+assistant: {"transactions":[{"transaction_type":"expense","amount":30,"currency":"USD","category":"transport","name":"uber to the airport","date_text":null,"confidence":"high"}]}
+
+user:      i bought a coffee 50 bucks and a croissant with 100 bucks and my father gave me 200
+assistant: {"transactions":[{"transaction_type":"expense","amount":50,"currency":"USD","category":"restaurants","name":"coffee","date_text":null,"confidence":"high"},{"transaction_type":"expense","amount":100,"currency":"USD","category":"restaurants","name":"croissant","date_text":null,"confidence":"high"},{"transaction_type":"income","amount":200,"currency":"USD","category":"transfer_in","name":"father","date_text":null,"confidence":"high"}]}
+
+user:      اشتريت قهوة بعشرين جنيه وحطيت بنزين بمية جنيه
+assistant: {"transactions":[{"transaction_type":"expense","amount":20,"currency":"EGP","category":"restaurants","name":"قهوة","date_text":null,"confidence":"high"},{"transaction_type":"expense","amount":100,"currency":"EGP","category":"fuel","name":"بنزين","date_text":null,"confidence":"high"}]}
 
 user:      اشتريت قهوة من ستاربكس بـ ١٨ ريال
-assistant: {"transaction_type":"expense","amount":18,"currency":"SAR","category":"restaurants","name":"ستاربكس","date_text":null,"confidence":"high"}
+assistant: {"transactions":[{"transaction_type":"expense","amount":18,"currency":"SAR","category":"restaurants","name":"ستاربكس","date_text":null,"confidence":"high"}]}
 
 user:      الجو حلو اليوم والحمد لله
-assistant: {"transaction_type":null,"amount":null,"currency":null,"category":null,"name":null,"date_text":null,"confidence":"low"}
+assistant: {"transactions":[]}
 ```
 
 Final user message: the actual transcript.
@@ -336,8 +374,15 @@ Final user message: the actual transcript.
 
 Deterministic Python that runs on the LLM output **before** it reaches the client. This layer must have unit tests.
 
-1. **Pydantic validation** — parse the LLM JSON into a Pydantic model mirroring §4.3. On parse failure (shouldn't happen with constrained decoding, but defend): return `status="failed"`.
-2. **Arabic-Indic numeral normalization** — anywhere in the transcript pipeline, map `٠١٢٣٤٥٦٧٨٩` → `0123456789` and `٫` → `.` (apply to the transcript **before** sending to the LLM, and to `name` after).
+The layer iterates over the LLM's `transactions` array, post-processing **each item
+independently** (`postprocess_item`); steps 1,3–6 below run per item. Junk items where both
+`transaction_type` and `amount` are null are dropped (they would otherwise become blank
+confirm cards). The empty-transcript `failed` check is a single per-utterance step.
+
+1. **Pydantic validation** — parse each transaction object into a Pydantic model mirroring the
+   §4.3 item schema. On parse failure (shouldn't happen with constrained decoding, but defend):
+   that item is dropped.
+2. **Arabic-Indic numeral normalization** — anywhere in the transcript pipeline, map `٠١٢٣٤٥٦٧٨٩` → `0123456789` and `٫` → `.` (apply to the transcript **before** sending to the LLM, and to each `name` after).
 3. **Date resolution** — resolve `date_text` → ISO `date` using the request's `client_date` (the device's current local date) as the anchor. Use the `dateparser` library (`pip install dateparser`), which handles Arabic and English relative dates natively:
    ```python
    import dateparser
@@ -347,21 +392,22 @@ Deterministic Python that runs on the LLM output **before** it reaches the clien
        settings={"RELATIVE_BASE": client_date_as_datetime, "PREFER_DATES_FROM": "past"},
    )
    ```
-   Custom pre-mappings before calling dateparser (it misses some dialect forms): `أمس/امس/البارح/البارحة → "yesterday"`, `أول أمس/أول البارح → "2 days ago"`, `اليوم → "today"`. If `date_text` is null or unparseable → default `date = client_date`.
+   Custom pre-mappings before calling dateparser (it misses some dialect forms): `أمس/امس/البارح/البارحة/امبارح/إمبارح → "yesterday"`, `أول أمس/أول البارح/أول امبارح → "2 days ago"`, `اليوم/النهارده/النهاردة → "today"`. If `date_text` is null or unparseable → default `date = client_date`.
 4. **Currency default** — if `currency` is null, fill with the user's `default_currency` (from their profile, default `"SAR"`).
 5. **Category guard** — if `category` is null but `transaction_type` is not, set `"other"`.
-6. **Status decision:**
-   - `ok` — `transaction_type` and `amount` both present.
-   - `needs_review` — transcript non-empty but `amount` or `transaction_type` is null, or `confidence == "low"`.
-   - `failed` — empty/garbage transcript or pipeline error.
+6. **Status decision** (per item + per utterance):
+   - Each surviving item gets `ok` (its `transaction_type` and `amount` are both present) or
+     `needs_review` (its `amount` or `transaction_type` is null, or `confidence == "low"`).
+   - The top-level utterance status is `failed` if the transcript was empty/garbage or zero
+     items survived; `needs_review` if any item needs review; otherwise `ok`.
 
 ### 4.6 Evaluation methodology (thesis chapter — build as scripts, not app features)
 
 Create `backend/evaluation/`:
 
-- **Dataset:** `evaluation/dataset.jsonl` — **250 labeled utterances**: 100 Arabic (mix MSA + Gulf + Egyptian), 100 English, 50 code-switched. Each row: `{"id", "audio_path" (optional), "transcript_gold", "extraction_gold": {...all six fields...}}`. The team records ~50–100 of these as real audio clips for end-to-end testing; the rest are text-only (extraction-stage evaluation).
+- **Dataset:** `evaluation/dataset.jsonl` — **250+ labeled utterances**: 100 Arabic (mix MSA + Gulf + Egyptian), 100 English, 50 code-switched, plus ~15–20 multi-transaction utterances. Each row: `{"id", "audio_path" (optional), "transcript_gold", "transactions_gold": [ {...all six fields...}, ... ]}` — a **list** of gold transactions (length 1 for single-transaction rows). The team records ~50–100 of these as real audio clips for end-to-end testing; the rest are text-only (extraction-stage evaluation).
 - **STT metric:** Word Error Rate via the `jiwer` package, reported per language. Normalize Arabic before WER (strip diacritics, unify alef forms ا/أ/إ/آ, unify ة/ه endings) — note the normalization in the thesis.
-- **Extraction metrics:** per-field **exact-match accuracy** (amount, type, currency, date) and **precision/recall/F1** for category and name (name matched case-insensitively after normalization). Report two conditions: (a) gold transcript → extraction (isolates the LLM), (b) audio → STT → extraction (end-to-end).
+- **Extraction metrics:** predicted transactions are aligned to gold by greedy best-match on (type, amount); then per-field **exact-match accuracy** (amount, type, currency, date) and **precision/recall/F1** for category and name (name matched case-insensitively after normalization) are computed over matched pairs, with unmatched gold counted as false-negatives and unmatched predictions as false-positives. A **transaction-count accuracy** (did the model detect the right number of transactions?) is also reported. Report two conditions: (a) gold transcript → extraction (isolates the LLM), (b) audio → STT → extraction (end-to-end).
 - **Scripts:** `evaluation/run_stt_eval.py`, `evaluation/run_extraction_eval.py`, each printing a results table and writing `results_*.json`.
 - **Ablations worth reporting:** Whisper `base` vs `small` vs `medium`; Qwen 3B vs 7B; with vs without few-shot examples.
 
@@ -394,8 +440,10 @@ All routes prefixed `/api/v1`. 🔒 = requires `Authorization: Bearer <access_to
 | POST | `/auth/refresh` | — | Body: `{refresh_token}`. Returns new token pair. |
 | GET | `/users/me` | 🔒 | Current user profile. |
 | PATCH | `/users/me` | 🔒 | Update `display_name`, `default_currency`, `locale`. |
-| POST | `/transactions/voice` | 🔒 | **The AI endpoint.** Multipart form: `audio` (file, ≤ 30 s / ≤ 5 MB), `client_date` (ISO date), `client_locale` (`ar`/`en`). Returns extraction result (below). Saves nothing. |
-| POST | `/transactions` | 🔒 | Create transaction. Body = TransactionCreate (below). |
+| POST | `/transactions/voice` | 🔒 | **The AI endpoint.** Multipart form: `audio` (file, ≤ 30 s / ≤ 5 MB), `client_date` (ISO date), `client_locale` (`ar`/`en`). Returns extraction result (below) — a **list** of transactions. Saves nothing. |
+| POST | `/transactions/extract-text` | 🔒 | Same as `/voice` but body `{text, client_date, client_locale}` — typed input, no STT. Same response shape. |
+| POST | `/transactions` | 🔒 | Create one transaction. Body = TransactionCreate (below). |
+| POST | `/transactions/batch` | 🔒 | Create many transactions atomically. Body `{items: [TransactionCreate]}`. Returns the created list. Backs the multi-transaction "Save All". |
 | GET | `/transactions` | 🔒 | List, newest first. Query: `month` (`YYYY-MM`), `category`, `type`, `page`, `page_size` (default 20). |
 | GET | `/transactions/{id}` | 🔒 | Single transaction (404 if not owner's). |
 | PATCH | `/transactions/{id}` | 🔒 | Partial update. |
@@ -404,22 +452,37 @@ All routes prefixed `/api/v1`. 🔒 = requires `Authorization: Bearer <access_to
 | GET | `/summary` | 🔒 | Query: `month` (`YYYY-MM`, required). Returns totals + per-category breakdown. |
 | GET | `/health` | — | `{status, whisper_loaded, ollama_reachable, db_ok}` — used by Docker healthcheck and the demo. |
 
-**`POST /transactions/voice` — response shape:**
+**`POST /transactions/voice` — response shape:** `extractions` is a **list** (one entry per
+transaction found; empty when none). Each entry carries its own `status`. The top-level
+`status` is `failed` if the list is empty, `needs_review` if any entry needs review, else `ok`.
 
 ```json
 {
   "status": "ok",                       // "ok" | "needs_review" | "failed"
-  "transcript": "دفعت خمسين ريال على البقالة من كارفور أمس",
+  "transcript": "اشتريت قهوة بعشرين جنيه وحطيت بنزين بمية جنيه",
   "detected_language": "ar",
-  "extraction": {
-    "transaction_type": "expense",
-    "amount": 50.0,
-    "currency": "SAR",
-    "category": "groceries",
-    "name": "كارفور",
-    "date": "2026-06-11",
-    "confidence": "high"
-  },
+  "extractions": [
+    {
+      "status": "ok",
+      "transaction_type": "expense",
+      "amount": 20.0,
+      "currency": "EGP",
+      "category": "restaurants",
+      "name": "قهوة",
+      "date": "2026-06-11",
+      "confidence": "high"
+    },
+    {
+      "status": "ok",
+      "transaction_type": "expense",
+      "amount": 100.0,
+      "currency": "EGP",
+      "category": "fuel",
+      "name": "بنزين",
+      "date": "2026-06-11",
+      "confidence": "high"
+    }
+  ],
   "timing_ms": { "stt": 2140, "extraction": 1830, "total": 4210 }
 }
 ```
@@ -541,7 +604,7 @@ Audio recording config: AAC-LC in `.m4a`, **16 kHz, mono, ~64 kbps**, max durati
 | 2 | **Login** | Email + password, link to Register. Error states per §5.4 codes. |
 | 3 | **Register** | Email, password, display name, default currency dropdown. |
 | 4 | **Home / Record** | The hero screen. Big mic button (tap to record, tap to stop; pulsing animation + elapsed timer while recording). After stop: uploading/processing state ("Transcribing…" → "Analyzing…"), then opens the Confirm sheet. Below the button: current month mini-summary (income/expense/balance) + last 5 transactions. |
-| 5 | **Confirm sheet** (modal bottom sheet) | Shows transcript (quoted, in its original language) + editable fields: type toggle (expense/income), amount, currency, category picker (grid with icons + localized labels), name, date picker, optional note. Status `needs_review` shows a warning banner; `failed` shows error + "Enter manually" button. Buttons: **Save** → `POST /transactions`; **Discard**. |
+| 5 | **Confirm transactions screen** | Shows the transcript (quoted, original language) once at top, then **one editable card per extracted transaction** (an utterance may contain several). Each card: type toggle (expense/income), amount, currency, category picker (icons + localized labels), name, date picker; cards whose `status == needs_review` are tinted amber, and a card can be removed. One **Save All (N)** button → `POST /transactions/batch` (atomic). When no transaction is detected, the empty manual form opens instead ("Enter manually"). |
 | 6 | **Transactions list** | Grouped by day, newest first. Filter bar: month selector, category chips, type toggle. Tap → edit (reuses confirm-sheet form). Swipe → delete with confirmation. |
 | 7 | **Dashboard** | Month selector; three stat cards (income/expense/balance); donut chart of expenses by category; per-category list. Data from `GET /summary`. |
 | 8 | **Settings** | Language switch (ar/en, applies instantly + persists via `PATCH /users/me`), default currency, display name, logout. |

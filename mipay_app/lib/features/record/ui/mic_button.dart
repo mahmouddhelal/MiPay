@@ -53,7 +53,8 @@ class _MicButtonState extends State<MicButton>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final color = widget.isRecording ? colorScheme.error : colorScheme.primary;
+    final color = widget.isRecording ? colorScheme.primaryContainer : colorScheme.primary;
+    final iconColor = widget.isRecording ? colorScheme.onPrimaryContainer : colorScheme.onPrimary;
 
     return ScaleTransition(
       scale: _pulse,
@@ -72,13 +73,13 @@ class _MicButtonState extends State<MicButton>
                     padding: const EdgeInsets.all(34),
                     child: CircularProgressIndicator(
                       strokeWidth: 3,
-                      color: colorScheme.onPrimary,
+                      color: iconColor,
                     ),
                   )
                 : Icon(
                     widget.isRecording ? Icons.stop : Icons.mic,
                     size: 48,
-                    color: colorScheme.onPrimary,
+                    color: iconColor,
                   ),
           ),
         ),

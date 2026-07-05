@@ -26,6 +26,15 @@ class TransactionsRepository {
     return Transaction.fromJson(r.data as Map<String, dynamic>);
   }
 
+  /// Save several transactions atomically (the multi-transaction "Save All").
+  Future<List<Transaction>> createMany(List<TransactionDraft> drafts) async {
+    final r = await _dio.post('/transactions/batch',
+        data: {'items': drafts.map((d) => d.toJson()).toList()});
+    return (r.data as List)
+        .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<Transaction> update(String id, TransactionDraft draft) async {
     // PATCH accepts partial bodies; sending the full draft is fine too.
     final r = await _dio.patch('/transactions/$id', data: draft.toJson()..remove('source')..remove('transcript'));

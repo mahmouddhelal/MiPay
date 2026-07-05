@@ -1,0 +1,41 @@
+\documentclass[a4paper,12pt]{report}
+
+% Include settings
+\input{settings/packages.tex}
+\input{settings/commands.tex}
+\usepackage{float}
+
+\begin{document}
+
+% ---------- Front matter ----------
+\input{sections/title_page.tex}
+\input{sections/acknowledgments.tex}
+\input{sections/abstract.tex}
+
+% Table of contents, figures, tables
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+
+% List of abbreviations
+\input{sections/abbreviations.tex}
+
+% ---------- Chapters ----------
+\input{chapters/chapter1.tex} % Introduction
+\input{chapters/chapter2.tex} % Related Work
+\input{chapters/chapter3.tex} % System Analysis
+\input{chapters/chapter4.tex} % Implementation
+\input{chapters/chapter5.tex} % Experimental Results
+\input{chapters/chapter6.tex} % Conclusion and Future Work
+
+% ---------- Bibliography ----------
+\bibliographystyle{unsrt}
+\bibliography{bibliography/bibliography}
+
+% ---------- Appendices ----------
+\input{chapters/appendices.tex}
+
+\end{document}

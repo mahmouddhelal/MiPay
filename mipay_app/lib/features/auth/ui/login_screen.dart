@@ -42,7 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final l10n = AppLocalizations.of(context)!;
         final msg = next.apiException?.localizedMessage(l10n) ?? l10n.errorUnknown;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          SnackBar(content: Text(msg)),
         );
       }
     });

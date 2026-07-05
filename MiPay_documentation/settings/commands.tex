@@ -1,0 +1,39 @@
+% commands.tex — custom macros and global settings
+
+% Where figures live (the team drops sourced .jpg files here — see FIGURE_GUIDE.md)
+\graphicspath{{figures/}}
+
+% Project metadata
+\newcommand{\projectname}{MiPay}
+\newcommand{\projecttitle}{A Bilingual Voice-First Personal Finance Tracker with a Self-Hosted Speech-to-Text and Large Language Model Extraction Pipeline}
+
+% Placeholder highlight: wrap values that must be replaced with real measured
+% numbers after running the evaluation (Chapter 5). Renders as a yellow box.
+\newcommand{\TODO}[1]{\colorbox{yellow!70}{\textbf{\small[#1]}}}
+
+% Inline code shortcut
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% A consistent shorthand for the evaluation "to be filled" results cell
+\newcommand{\result}[1]{\TODO{#1}}
+
+% ── Graceful missing-figure fallback ────────────────────────────────────────
+% Until the team drops the sourced .jpg/.png files into figures/, any missing
+% image is replaced by a labelled placeholder box so the document still
+% compiles. Once the real file exists, it is used automatically.
+\usepackage{xparse}
+\let\origincludegraphics\includegraphics
+\RenewDocumentCommand{\includegraphics}{O{}m}{%
+  \IfFileExists{#2}{\origincludegraphics[#1]{#2}}{%
+    \fbox{\parbox[c][3.2cm][c]{0.78\linewidth}{\centering\ttfamily\small
+      [ missing figure ]\\[2pt]#2\\[2pt]\textnormal{\itshape see FIGURE\_GUIDE.md}}}%
+  }%
+}
+
+% Header / footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\thepage}\renewcommand{\headrulewidth}{0pt}}

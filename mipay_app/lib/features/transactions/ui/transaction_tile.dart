@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
+import '../../../core/theme/app_semantic_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../models/transaction.dart';
 import '../providers/transactions_provider.dart';
@@ -25,7 +26,9 @@ class TransactionTile extends ConsumerWidget {
         .firstOrNull;
 
     final sign = isExpense ? '-' : '+';
-    final amountColor = isExpense ? colorScheme.error : Colors.green.shade700;
+    final amountColor = isExpense
+        ? context.semantics.expense
+        : context.semantics.income;
 
     return ListTile(
       onTap: onTap,
@@ -55,7 +58,7 @@ class TransactionTile extends ConsumerWidget {
         ],
       ),
       trailing: Text(
-        '$sign${formatCurrency(transaction.amount, transaction.currency, locale.toString())}',
+        '‎$sign${formatCurrency(transaction.amount, transaction.currency, locale.toString())}',
         style: TextStyle(
           color: amountColor,
           fontWeight: FontWeight.w600,

@@ -5,6 +5,7 @@ import 'package:mipay_app/l10n/app_localizations.dart';
 
 import '../../transactions/models/transaction.dart';
 import '../../transactions/providers/transactions_provider.dart';
+import '../../transactions/ui/confirm_transactions_screen.dart';
 import '../../transactions/ui/transaction_form.dart';
 import '../../transactions/ui/transaction_tile.dart';
 import '../models/voice_extraction.dart';
@@ -41,13 +42,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _openConfirmSheet(VoiceExtractionResult result) async {
     final controller = ref.read(recordingControllerProvider.notifier);
-    // failed → straight to the empty manual form (FR-07)
-    final form = result.failed
-        ? const TransactionFormScreen()
-        : TransactionFormScreen(voiceResult: result);
+    // No transactions detected (failed/empty) → straight to the empty manual
+    // form (FR-07); otherwise the multi-transaction confirm screen.
+    final Widget screen = result.hasExtractions
+        ? ConfirmTransactionsScreen(result: result)
+        : const TransactionFormScreen();
 
     final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => form, fullscreenDialog: true),
+      MaterialPageRoute(builder: (_) => screen, fullscreenDialog: true),
     );
     controller.reset();
     if (saved == true && mounted) {
@@ -72,7 +74,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ? l10n.errorMicPermission
             : (next.apiException?.localizedMessage(l10n) ?? l10n.errorNetwork);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          SnackBar(content: Text(msg)),
         );
         ref.read(recordingControllerProvider.notifier).reset();
       }
@@ -160,7 +162,12 @@ class _StatusLine extends StatelessWidget {
       RecordingProcessing() => '${l10n.transcribing} ${l10n.analyzing}',
       _ => l10n.tapToRecord,
     };
-    return Text(text, style: Theme.of(context).textTheme.bodyMedium);
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+    );
   }
 }
 
@@ -175,7 +182,7 @@ class _RecentList extends ConsumerWidget {
 
     return txAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('$e')),
+      error: (e, _) => const SizedBox.shrink(),
       data: (txs) {
         if (txs.isEmpty) {
           return Center(child: Text(l10n.noTransactions));

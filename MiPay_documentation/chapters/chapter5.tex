@@ -1,0 +1,474 @@
+\chapter{Experimental Results}
+
+\setlength{\parindent}{1em}
+
+\begin{quote}
+\small\itshape
+Note on what is measured versus pending. Every table in this chapter reports
+real measurements from the deployed system (Whisper \texttt{small} + Qwen2.5-7B-Instruct,
+CPU-only reference machine, \texttt{temperature}\,$=0$), obtained by running
+\texttt{backend/evaluation/run\_stt\_eval.py} and \texttt{run\_extraction\_eval.py}
+against the full 274-row corpus and a 6-clip recorded-audio pilot. The three
+\textbf{ablation} tables (Whisper size, LLM size, few-shot vs.\ zero-shot) remain
+labelled placeholders (\result{XX.X}): each requires restarting the containers
+with a different model and re-running the full corpus, which was out of scope
+for this pass and is left as an immediate next step, not a methodological gap.
+\end{quote}
+
+\section{Baseline / Evaluation Setup}
+
+\subsection{Evaluation Corpus and Conditions}
+
+All experiments use the labeled corpus of Section~4.1: 274 utterances
+(111 Arabic, 110 English, 53 code-switched), comprising 294 gold transactions,
+of which 19 utterances are multi-transaction. Two evaluation \emph{conditions}
+isolate different parts of the pipeline:
+
+\begin{description}[leftmargin=1.4em, style=nextline]
+    \item[Condition (a) --- Gold transcript $\rightarrow$ extraction.] The gold
+    transcript is sent directly to the text-extraction endpoint, bypassing speech
+    recognition. This isolates the language model and post-processing from any
+    transcription noise and measures the \emph{ceiling} of extraction quality.
+    Run over all 274 utterances.
+    \item[Condition (b) --- Audio $\rightarrow$ STT $\rightarrow$ extraction.] A
+    recorded audio clip is sent through the full voice endpoint. This measures
+    \emph{end-to-end} quality, including the compounding of transcription errors
+    into extraction errors. Run over the 6-clip recorded-audio pilot (four
+    Arabic, two English) described in Section~4.1; this is a small qualitative
+    pilot, not a statistically powered benchmark, and is reported as such
+    throughout this chapter.
+\end{description}
+
+\subsection{Reference Hardware}
+
+The reference deployment is the CPU-only configuration of NFR-06: a single
+machine with 16\,GB RAM and no GPU, running the three Docker Compose services.
+The speech model is Whisper \texttt{small} (\texttt{int8}) and the language
+model is Qwen2.5-7B-Instruct served by Ollama with \texttt{temperature}\,$=0$
+and schema-constrained decoding. All latency figures are wall-clock times
+measured on this reference machine. Determinism was confirmed directly: an
+independent full re-run of condition (a) reproduced identical aggregate
+accuracy figures to four significant digits, as expected from
+temperature-0 decoding.
+
+\paragraph{Note on system version.} The corpus and results reported in this
+chapter were measured against the seventeen-category, Saudi-Arabia-first
+(SAR-default) configuration of the extraction schema described earlier in
+this thesis. The system has since been extended for the Egyptian market
+(Section~4.2.1): the category taxonomy grew from seventeen to twenty-nine
+keys and the default currency changed from SAR to EGP. The evaluation
+corpus itself is already Egyptian-dialect-heavy and EGP-denominated (Table~4.1),
+so the measured accuracy figures and the two root causes identified in
+Section~5.6 remain representative of the system's behavior; only the
+category-taxonomy size referenced in Section~5.6.2 reflects the
+seventeen-key schema in place at evaluation time. Re-running the full
+evaluation against the twenty-nine-key schema is listed in Chapter~6 as an
+immediate next step, alongside the ablation studies.
+
+\section{Metrics}
+
+\subsection{Word Error Rate (Speech-to-Text)}
+
+Transcription quality is measured with Word Error Rate (WER), the standard ASR
+metric~\cite{morris2004wer}, computed with the \texttt{jiwer}
+library~\cite{jiwer}:
+\[
+\text{WER} = \frac{S + D + I}{N},
+\]
+where $S$, $D$, and $I$ are the number of substituted, deleted, and inserted
+words required to transform the hypothesis into the reference, and $N$ is the
+number of words in the reference. Because Arabic orthography varies, Arabic
+references and hypotheses are normalized before scoring---diacritics are stripped,
+alef variants are unified, and the \emph{ta-marbuta}/\emph{ha} ending is
+normalized---following the project's \texttt{normalize\_ar.py}; Character Error
+Rate (CER) is additionally reported for Arabic since WER can be a harsh metric
+on short utterances with heavy dialectal variation.
+
+\subsection{Extraction Accuracy and F\textsubscript{1}}
+
+Predicted transactions are first aligned to gold transactions by greedy
+best-match on \texttt{(transaction\_type, amount)}; unmatched predictions count
+as false positives and unmatched gold transactions as false negatives. Over the
+matched pairs:
+
+\begin{itemize}[leftmargin=1.4em]
+    \item \texttt{amount}, \texttt{transaction\_type}, \texttt{currency}, and
+    \texttt{date} are scored by \textbf{exact-match accuracy} (amount within a
+    1\% tolerance);
+    \item \texttt{category} and \texttt{name} are scored by
+    \textbf{precision, recall, and F\textsubscript{1}}~\cite{powers2011fmeasure}
+    (name matched case-insensitively after normalization), with
+    \[
+    P=\frac{TP}{TP+FP}, \quad R=\frac{TP}{TP+FN}, \quad F_1=\frac{2PR}{P+R};
+    \]
+    \item a \textbf{transaction-count accuracy} reports how often the model
+    detected the correct \emph{number} of transactions in an utterance.
+\end{itemize}
+
+\section{Speech-to-Text Results}
+
+Table~\ref{tab:wer} reports WER on the 6-clip recorded-audio pilot. The Arabic
+target is WER\,$\leq$\,20\% and the English target is WER\,$\leq$\,12\%
+(NFR-02). \textbf{With only 4 Arabic and 2 English clips, these figures are a
+qualitative signal, not a powered estimate}---each is a single wrong/right word
+away from moving several percentage points--- but the direction is clear and
+consistent with the extraction-stage findings below.
+
+\begin{table}[H]
+\centering
+\caption{Word Error Rate on the 6-clip recorded-audio pilot (Whisper \texttt{small}, \texttt{int8}). Lower is better.}
+\label{tab:wer}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X c c c c}
+\toprule
+\textbf{Language subset} & \textbf{WER (\%)} & \textbf{CER (\%)} & \textbf{Target WER (\%)} & \textbf{Clips} \\
+\midrule
+Arabic (\texttt{ar})  & 76.0 & 44.7 & $\leq 20$ & 4 \\
+English (\texttt{en}) & 17.4 & ---  & $\leq 12$ & 2 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The English WER (17.4\%, $n=2$) is close to, but above, the 12\% target; the
+Arabic WER (76.0\%, $n=4$) is far above the 20\% target. Two of the four Arabic
+clips were the team's own re-takes of a single sentence in Egyptian colloquial
+Arabic recorded under informal (non-studio) conditions, and Whisper's transcripts
+of them were badly garbled (in one case the language was even mis-detected as
+Japanese). This is consistent with the known difficulty dialectal, informally
+recorded Arabic poses for general-purpose ASR (Section~2.1) and is discussed
+further in Section~5.6.
+
+\section{Extraction Results}
+
+\subsection{Per-Field Accuracy}
+
+Table~\ref{tab:extract-main} reports per-field extraction quality under both
+conditions. The targets from NFR-02 are amount $\geq$\,90\%, type $\geq$\,85\%,
+and category $\geq$\,80\%.
+
+\begin{table}[H]
+\centering
+\caption{Per-field extraction quality. Exact-match accuracy for amount, type, currency, date; F\textsubscript{1} for category and name.}
+\label{tab:extract-main}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X c c c}
+\toprule
+\textbf{Field} & \textbf{(a) Gold ($n$=274)} & \textbf{(b) End-to-end ($n$=6)} & \textbf{Target} \\
+\midrule
+\texttt{amount} (acc.)            & 65.6\% & 100.0\% & $\geq 90\%$ \\
+\texttt{transaction\_type} (acc.) & 99.3\% & 100.0\% & $\geq 85\%$ \\
+\texttt{currency} (acc.)          & 96.6\% & 71.4\%  & --- \\
+\texttt{date} (acc.)              & 99.3\% & 100.0\% & --- \\
+\texttt{category} (F\textsubscript{1}) & 0.554 & 0.222 & $\geq 0.80$ \\
+\texttt{name} (F\textsubscript{1})     & 0.675 & 0.333 & --- \\
+\midrule
+Transaction-count acc.            & 100.0\% & 100.0\% & --- \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\texttt{transaction\_type}, \texttt{date}, and transaction-count accuracy all
+meet or substantially exceed their targets. \texttt{amount} and
+\texttt{category} fall well short of theirs in the gold condition---65.6\%
+against a 90\% target for amount, and an F\textsubscript{1} of 0.554 against an
+0.80 target for category. Section~5.6 shows these are not diffuse, unexplained
+weaknesses: both trace to specific, identifiable causes with a clear fix.
+
+\subsection{Per-Language Breakdown}
+
+Table~\ref{tab:extract-lang} breaks extraction accuracy down by language subset
+(condition (a)). The gap is stark for \texttt{amount} and is the single most
+important result in this chapter for a bilingual system.
+
+\begin{table}[H]
+\centering
+\caption{Extraction accuracy by language subset (condition (a), gold transcript, $n$=111/110/53).}
+\label{tab:extract-lang}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X c c c c c}
+\toprule
+\textbf{Subset} & \textbf{type} & \textbf{amount} & \textbf{currency} & \textbf{date} & \textbf{category F\textsubscript{1}} \\
+\midrule
+Arabic        & 99.2\%  & \textbf{37.3\%} & 98.3\% & 98.3\%  & 0.564 \\
+English       & 99.2\%  & \textbf{99.2\%} & 94.2\% & 100.0\% & 0.566 \\
+Code-switched & 100.0\% & \textbf{53.6\%} & 98.2\% & 100.0\% & 0.480 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Amount accuracy is essentially perfect in English (99.2\%) and collapses in
+Arabic (37.3\%), with code-switched utterances in between (53.6\%, consistent
+with many of them expressing the amount in Arabic words even when other parts
+of the sentence are English). Type, currency, and date show no comparable
+language gap. Section~5.6 traces this precisely to how Qwen2.5-7B-Instruct
+parses Arabic \emph{spelled-out compound numbers}.
+
+\subsection{End-to-End Audio Pilot (Condition (b))}
+
+The 6-clip pilot (Table~\ref{tab:extract-main}, column (b)) shows perfect
+type/amount/date accuracy but weak currency (71.4\%) and category/name
+F\textsubscript{1} (0.222/0.333). With $n=6$ (7 gold transactions), each
+utterance is worth roughly 14 percentage points, so no strong claim should be
+drawn from the absolute numbers---but two of the errors are individually
+interesting. One clip's speaker said ``\emph{30 pounds}'' for the price of a
+pair of earbuds; British pounds (GBP) are not among MiPay's nineteen supported
+currencies (Table~4.3, chosen to cover the Arab region plus major reserve
+currencies), so no correct prediction was possible by construction---the gold
+label is \texttt{null} and is scored as a currency miss regardless of what the
+model outputs. This is a real, useful finding about the currency enum's
+coverage, not a model failure (Section~5.6). The other systematic pattern in
+this pilot is the same category-defaulting behavior seen at full scale
+(Section~5.6.2): both purchases in the multi-transaction clip (an iPhone and a
+pair of earbuds) were labeled \texttt{shopping} in the gold set but
+\texttt{other} by the model.
+
+\subsection{End-to-End Latency}
+
+Table~\ref{tab:latency} reports per-stage and total latency measured directly
+from \texttt{POST /transactions/voice} on the 6 recorded clips (5.8--16.8\,s
+each; the CPU-only reference machine, no GPU). Figures are the median across
+the 6 calls; the longest clip (16.8\,s, two transactions) is an outlier shown
+separately.
+
+\begin{table}[H]
+\centering
+\caption{End-to-end latency on the CPU-only reference machine, measured on the 6-clip audio pilot.}
+\label{tab:latency}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X c c}
+\toprule
+\textbf{Stage} & \textbf{Median (ms), $n$=6} & \textbf{Longest clip (16.8\,s, 2-tx) (ms)} \\
+\midrule
+Transcription (Whisper \texttt{small}) & 3{,}890 & 5{,}693 \\
+Extraction (Qwen2.5-7B)                & 6{,}995 & 12{,}011 \\
+\midrule
+\textbf{Total}                         & 11{,}106 & 17{,}936 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Against the NFR-01 budget of $\leq$\,10\,s for a 10-second clip, the median
+total (11.1\,s, over clips of 5.8--7.5\,s) modestly \emph{exceeds} the target
+on this CPU-only hardware, with extraction---not transcription---as the larger
+of the two stages. The 16.8-second, two-transaction clip took 17.9\,s, showing
+that longer/compound utterances cost proportionally more at the extraction
+stage (larger output, more tokens to decode under the schema constraint) as
+well as at the transcription stage. This is consistent with the specification's
+own risk assessment (Section~11 of the spec) and is the direct, measured
+argument for the GPU-acceleration and smaller-model fallback paths documented
+in Section~9.3, and for the faster-whisper upgrade path in Chapter~6.
+
+\section{Ablation Studies (Planned, Not Yet Run)}
+
+The ablation studies below quantify the contribution of each design choice.
+Each requires restarting the containers with a different model configuration
+and re-running the full 274-utterance corpus (roughly 30 CPU-minutes per
+configuration); they were not executed in this pass and are reported as
+labelled placeholders so the thesis structure and methodology are complete and
+ready to receive the numbers.
+
+\subsection{Ablation 1 --- Whisper Model Size}
+
+\begin{table}[H]
+\centering
+\caption{Ablation 1 (planned): Whisper model size versus WER and latency.}
+\label{tab:abl-whisper}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X c c c c}
+\toprule
+\textbf{Model} & \textbf{WER ar (\%)} & \textbf{WER en (\%)} & \textbf{WER mixed (\%)} & \textbf{Latency (ms)} \\
+\midrule
+\texttt{base}   & \result{XX.X} & \result{XX.X} & \result{XX.X} & \result{XXXX} \\
+\texttt{small}  & 76.0 (pilot, $n$=4) & 17.4 (pilot, $n$=2) & \result{XX.X} & 3{,}890 \\
+\texttt{medium} & \result{XX.X} & \result{XX.X} & \result{XX.X} & \result{XXXX} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Ablation 2 --- Language-Model Size}
+
+\begin{table}[H]
+\centering
+\caption{Ablation 2 (planned): language-model size versus extraction quality (condition (a)).}
+\label{tab:abl-llm}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X c c c c}
+\toprule
+\textbf{Model} & \textbf{amount} & \textbf{type} & \textbf{category F\textsubscript{1}} & \textbf{Latency (ms)} \\
+\midrule
+\texttt{qwen2.5:3b-instruct} & \result{XX.X} & \result{XX.X} & \result{0.XX} & \result{XXXX} \\
+\texttt{qwen2.5:7b-instruct} & 65.6 & 99.3 & 0.554 & 6{,}995 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Ablation 3 --- Few-Shot versus Zero-Shot Prompting}
+
+\begin{table}[H]
+\centering
+\caption{Ablation 3 (planned): few-shot versus zero-shot prompting (condition (a), Qwen2.5-7B).}
+\label{tab:abl-fewshot}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X c c c}
+\toprule
+\textbf{Prompt} & \textbf{amount} & \textbf{category F\textsubscript{1}} & \textbf{count acc.} \\
+\midrule
+Zero-shot (system only) & \result{XX.X} & \result{0.XX} & \result{XX.X} \\
+Few-shot (8 examples)   & 65.6 & 0.554 & 100.0 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Qualitative Examples}
+
+Table~\ref{tab:qualitative} shows representative utterances and the pipeline's
+\emph{actual} predictions from the evaluation run (not idealized examples),
+illustrating the two systematic error modes analyzed in Section~5.6 alongside
+cases that work correctly.
+
+\begin{table}[H]
+\centering
+\caption{Representative utterances and actual observed pipeline output (Arabic transliterated).}
+\label{tab:qualitative}
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{X X X}
+\toprule
+\textbf{Utterance (transliterated)} & \textbf{Gold} & \textbf{Predicted} \\
+\midrule
+``ishtarayt bidala min Carrefour bi-mitayn wa-khamsin gineh al-naharda'' & 250 EGP, groceries, Carrefour & \textbf{150 EGP} (``mitayn'' 200 misread as ``miya'' 100), groceries, Carrefour \\
+``da\!fact talatmiya wa-cishrin gineh fi Spinneys'' & 320 EGP, groceries & \textbf{20 EGP} (hundreds word dropped) \\
+``ishtarayt ti-shirt min Zara bi-tamanmiya gineh'' & 800 EGP, \textbf{shopping}, Zara & 50 EGP, \textbf{other}, Zara \\
+``I bought an iPhone with 100 bucks and earbuds for 30 pounds'' & 100 USD + 30 (currency n/a), \textbf{shopping} & 100 USD + 30, \textbf{other} (both items) \\
+``So today I bought \$50 pizza.'' & 50 USD, restaurants, pizza & 50 USD, restaurants, pizza (exact match) \\
+``i bought a coffee 50 bucks and a croissant 100 bucks and dad gave me 200'' & 3 transactions: 50/100/200 USD & 3 transactions: 50/100/200 USD (exact match, correct split) \\
+``al-jaw hilw al-yawm wal-hamdu lillah'' (no transaction) & \texttt{[]} (empty) & \texttt{[]} (empty, correctly detected) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Discussion and Analysis}
+
+\subsection{Does the System Meet Its Targets?}
+
+Against NFR-02, the system \textbf{exceeds} the type target (99.3\% vs.\
+$\geq$\,85\%) and has no explicit target for currency or date but scores 96.6\%
+and 99.3\% respectively---all excellent. It \textbf{misses} the amount target
+substantially (65.6\% vs.\ $\geq$\,90\%) and the category target
+(F\textsubscript{1} 0.554 vs.\ $\geq$\,0.80). Both misses are traced to
+specific, fixable causes below rather than being diffuse quality problems,
+which changes how they should be read: this is not "the model is generally
+unreliable at 65\%,'' it is "the model is unreliable at one specific,
+well-defined sub-task (Arabic compound-number parsing) and defaults to
+\texttt{other} for six specific, well-defined categories.''
+
+\subsection{Root Cause 1: Arabic Compound-Number Parsing}
+
+The per-language breakdown (Table~\ref{tab:extract-lang}) isolates the amount
+failure to Arabic: 37.3\% accuracy versus 99.2\% in English. Manual inspection
+of the mismatches (Table~\ref{tab:qualitative}, rows 1--2) shows a consistent
+pattern: Qwen2.5-7B-Instruct frequently mis-parses Egyptian-colloquial
+\emph{compound} number words---hundreds spoken with a conjunction before tens or
+units, e.g.\ ``\emph{talatmiya wa-cishrin}'' (300 + 20 = 320) or ``\emph{mitayn
+wa-khamsin}'' (200 + 50 = 250)---dropping the hundreds component entirely
+(320~$\rightarrow$~20) or confusing the dual form ``\emph{mitayn}'' (200) with
+the singular ``\emph{miya}'' (100), yielding 250~$\rightarrow$~150. Simple
+amounts (a single number word, or Western/Arabic-Indic digits) are unaffected;
+English and digit-based amounts in any language score near-perfectly. This
+error also explains part of the low \texttt{name} score (Section~5.6.3): when
+the compound number is mis-parsed, the unrecognized fragment sometimes remains
+attached to the \texttt{name} field instead of being cleanly separated (e.g.\
+gold \emph{name}=``Awlad Ragab'' vs.\ predicted ``Awlad Ragab
+bitalatmiya-wa-tamanya''). This is precisely the class of error the project's
+own risk register anticipated (Section~1.7, ``Qwen mislabels
+category/currency/amount on rare phrasings''), and it is the strongest
+data-backed argument in this thesis for the Chapter~6 upgrade path: either a
+larger/newer LLM, or---more directly---extending the deterministic
+\texttt{postprocess.py} numeral-normalization layer (already handling
+Arabic-Indic digit substitution) with an explicit Arabic
+number-word-to-digit converter, so amount extraction no longer depends on the
+LLM getting compound number words right.
+
+\subsection{Root Cause 2: A Prompt-Coverage Gap for Six Categories}
+
+The category confusion matrix (computed from the raw prediction capture) shows
+that errors are not spread randomly across the seventeen-category taxonomy
+in place at evaluation time:
+they concentrate overwhelmingly on \texttt{shopping} (19 misclassifications),
+\texttt{business} (12), \texttt{gifts\_donations} (10), \texttt{education} (9),
+\texttt{entertainment} (9), and \texttt{personal\_care} (8), in every case
+predicted as \texttt{other}. Cross-referencing the system prompt
+(Appendix~A.3), this is exactly the set of categories for which the prompt
+gives \emph{no} worked keyword examples: the prompt enumerates explicit mapping
+examples for \texttt{groceries}, \texttt{restaurants}, \texttt{fuel},
+\texttt{transport}, \texttt{bills}, \texttt{rent}, \texttt{health},
+\texttt{salary}, and \texttt{transfer\_in}, but not for the six categories that
+dominate the error count. This is a concrete, low-risk, high-confidence fix:
+adding one worked example per uncovered category to the few-shot prompt (no
+retraining, no schema change) is the most cost-effective single improvement
+identified by this evaluation, and is recommended as an immediate follow-up
+ahead of any model upgrade.
+
+\subsection{The \texttt{name} Metric Is Partly an Artifact}
+
+Breaking down the 220 gold/predicted \texttt{name} pairs in the gold condition:
+179 (81\%) are cases where the gold label is \texttt{null} (the dataset author
+judged no name-worthy detail was present) but the model extracted \emph{some}
+value anyway (e.g.\ gold=\texttt{null}, predicted=``McDonald's''); only 30
+(14\%) are cases where both gold and prediction contain a value but disagree,
+and several of those are themselves downstream contamination from the
+compound-number failure (Section~5.6.2) rather than independent naming errors.
+Read this way, the raw 28.2\%/67.5\% (accuracy/F\textsubscript{1}) numbers
+understate how often the model's \texttt{name} output would actually satisfy a
+user reviewing the confirmation screen; the strict exact-match metric simply
+does not give credit for a plausible name where the curated gold happened to
+leave the field empty. This is reported as a metric limitation, not silently
+corrected, so the numbers in Table~\ref{tab:extract-main} remain an honest,
+reproducible measurement.
+
+\subsection{The Currency Enum Has a Real, Bounded Gap}
+
+The 6-clip pilot's lowest-scoring field, currency (71.4\%), includes one
+genuinely unanswerable item: a speaker said ``pounds'' meaning British pounds,
+which is not among MiPay's nineteen supported currencies (the schema targets
+the Arab region plus major reserve currencies; Table~4.3). No prediction could
+have been marked correct for this item under the current schema. This is
+useful, bounded evidence---not of model failure, but of a currency-coverage
+decision worth revisiting if the target user base is expected to reference
+non-regional currencies.
+
+\subsection{The Role of Human Confirmation}
+
+Every extraction error identified above is caught at the confirmation step
+before it reaches the database (Section~3.2, two-step save). The measured
+accuracies are therefore a proxy for \emph{how often the user must edit a
+field}, not a measure of data integrity: a mis-parsed Arabic amount becomes a
+one-tap correction, never a silently corrupted record. Given that the
+amount-accuracy shortfall is concentrated in Arabic compound numbers---a
+narrow, identifiable linguistic construction rather than a pervasive
+weakness---the practical user-facing impact is that Arabic speakers using
+three-digit-plus compound amounts will edit the amount field more often than
+English speakers, a specific, fixable, and honestly reportable limitation
+rather than a systemic reliability problem.
+
+\subsection{Threats to Validity}
+
+The 268-row text corpus is authored by the team and, while constructed to span
+the full category/currency/dialect space, may not match the exact distribution
+of real user speech. The 6-clip audio pilot is far smaller than the 50--100
+clips originally targeted (Section~4.1) and every number derived from it should
+be read as indicative, not statistically powered---explicitly flagged wherever
+it is cited in this chapter. Two of the six audio clips are repeated takes of
+the same underlying sentence (recorded because the first attempts were of poor
+quality), which is disclosed rather than hidden, but means the pilot's
+effective linguistic diversity is five utterances, not six. Scaling the audio
+pilot to the originally targeted size, and re-running it after the two fixes
+identified in Sections 5.6.1--5.6.2, are the highest-priority items in the
+Chapter~6 future-work list.

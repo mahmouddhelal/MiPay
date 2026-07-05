@@ -160,11 +160,11 @@ async def test_categories_endpoint(client: AsyncClient) -> None:
     r = await client.get("/api/v1/categories", headers=headers)
     assert r.status_code == 200
     cats = r.json()
-    assert len(cats) == 17
+    assert len(cats) == 29
     keys = {c["key"] for c in cats}
     assert "groceries" in keys and "salary" in keys and "other" in keys
     grocery = next(c for c in cats if c["key"] == "groceries")
-    assert grocery["label_ar"] == "بقالة"
+    assert grocery["label_ar"] == "بقالة وسوبرماركت"
 
     # requires auth
     r = await client.get("/api/v1/categories")

@@ -4,24 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
+import '../../../core/theme/app_semantic_colors.dart';
+import '../../../core/utils/formatters.dart';
+import '../../transactions/models/category.dart';
+import '../../transactions/providers/transactions_provider.dart';
 import '../models/summary.dart';
 import '../providers/summary_provider.dart';
-
-// Fixed palette — one colour per category slot (cycles if > 12 categories)
-const _kPalette = [
-  Color(0xFF6366F1), // indigo
-  Color(0xFFF59E0B), // amber
-  Color(0xFF10B981), // emerald
-  Color(0xFFEF4444), // red
-  Color(0xFF3B82F6), // blue
-  Color(0xFFF97316), // orange
-  Color(0xFF8B5CF6), // violet
-  Color(0xFF14B8A6), // teal
-  Color(0xFFEC4899), // pink
-  Color(0xFF84CC16), // lime
-  Color(0xFF06B6D4), // cyan
-  Color(0xFFA855F7), // purple
-];
 
 String _monthKey(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}';
@@ -44,7 +32,7 @@ class DashboardScreen extends ConsumerWidget {
           Expanded(
             child: summaryAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text(e.toString())),
+              error: (e, _) => const SizedBox.shrink(),
               data: (summary) => _SummaryBody(summary: summary),
             ),
           ),
@@ -103,7 +91,9 @@ class _SummaryBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final semantics = context.semantics;
     final cur = summary.currency;
+    final locale = Localizations.localeOf(context).toString();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -115,30 +105,37 @@ class _SummaryBody extends StatelessWidget {
               label: l10n.totalIncome,
               amount: summary.totalIncome,
               currency: cur,
-              color: Colors.green,
+              locale: locale,
+              color: semantics.income,
             ),
             const SizedBox(width: 8),
             _StatCard(
               label: l10n.totalExpenses,
               amount: summary.totalExpense,
               currency: cur,
-              color: Colors.red,
+              locale: locale,
+              color: semantics.expense,
             ),
             const SizedBox(width: 8),
             _StatCard(
               label: l10n.balance,
               amount: summary.balance,
               currency: cur,
-              color: summary.balance >= 0 ? Colors.blue : Colors.orange,
+              locale: locale,
+              color: summary.balance >= 0 ? semantics.income : semantics.expense,
             ),
           ],
         ),
         const SizedBox(height: 24),
-        // Donut chart
         if (summary.byCategory.isNotEmpty) ...[
-          _DonutChart(categories: summary.byCategory, currency: cur),
+          _DonutChart(
+            categories: summary.byCategory,
+            currency: cur,
+            locale: locale,
+            balance: summary.balance,
+          ),
           const SizedBox(height: 16),
-          _CategoryList(categories: summary.byCategory, currency: cur),
+          _CategoryList(categories: summary.byCategory, currency: cur, locale: locale),
         ] else
           Center(
             child: Padding(
@@ -161,17 +158,18 @@ class _StatCard extends StatelessWidget {
     required this.label,
     required this.amount,
     required this.currency,
+    required this.locale,
     required this.color,
   });
 
   final String label;
   final double amount;
   final String currency;
+  final String locale;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.compact();
     return Expanded(
       child: Card(
         child: Padding(
@@ -187,11 +185,11 @@ class _StatCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '${fmt.format(amount)} $currency',
+                '‎${formatCurrency(amount, currency, locale)}',
                 style: Theme.of(context)
                     .textTheme
                     .titleSmall
-                    ?.copyWith(color: color, fontWeight: FontWeight.bold),
+                    ?.copyWith(color: color, fontWeight: FontWeight.w700),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -206,32 +204,81 @@ class _StatCard extends StatelessWidget {
 // ── Donut chart ──────────────────────────────────────────────────────────────
 
 class _DonutChart extends StatelessWidget {
-  const _DonutChart({required this.categories, required this.currency});
+  const _DonutChart({
+    required this.categories,
+    required this.currency,
+    required this.locale,
+    required this.balance,
+  });
 
   final List<CategorySummary> categories;
   final String currency;
+  final String locale;
+  final double balance;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.semantics.chartPalette;
+    // Top 7 + aggregate "Other"
+    final sorted = [...categories]..sort((a, b) => b.total.compareTo(a.total));
+    final top = sorted.take(7).toList();
+    final rest = sorted.skip(7).toList();
+    final otherTotal = rest.fold<double>(0, (s, c) => s + c.total);
+    final display = [
+      ...top,
+      if (otherTotal > 0) CategorySummary(category: 'other', total: otherTotal, count: 0),
+    ];
+
     final sections = [
-      for (var i = 0; i < categories.length; i++)
+      for (var i = 0; i < display.length; i++)
         PieChartSectionData(
-          value: categories[i].total,
-          color: _kPalette[i % _kPalette.length],
-          radius: 56,
+          value: display[i].total,
+          color: palette[i % palette.length],
+          radius: 52,
           showTitle: false,
         ),
     ];
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final balanceColor = balance >= 0
+        ? context.semantics.income
+        : context.semantics.expense;
+
     return SizedBox(
-      height: 200,
-      child: PieChart(
-        PieChartData(
-          sections: sections,
-          centerSpaceRadius: 52,
-          sectionsSpace: 2,
-          pieTouchData: PieTouchData(enabled: false),
-        ),
+      height: 220,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              sections: sections,
+              centerSpaceRadius: 60,
+              sectionsSpace: 2,
+              pieTouchData: PieTouchData(enabled: false),
+            ),
+          ),
+          // Net balance in donut center
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                AppLocalizations.of(context)!.balance,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '‎${formatCurrency(balance, currency, locale)}',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: balanceColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -239,27 +286,51 @@ class _DonutChart extends StatelessWidget {
 
 // ── Category breakdown list ──────────────────────────────────────────────────
 
-class _CategoryList extends StatelessWidget {
-  const _CategoryList({required this.categories, required this.currency});
+class _CategoryList extends ConsumerWidget {
+  const _CategoryList({
+    required this.categories,
+    required this.currency,
+    required this.locale,
+  });
 
   final List<CategorySummary> categories;
   final String currency;
+  final String locale;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.semantics.chartPalette;
+    final categoriesData = ref.watch(categoriesProvider).valueOrNull ?? [];
+    final l10n = AppLocalizations.of(context)!;
+    final appLocale = Localizations.localeOf(context);
+
+    final sorted = [...categories]..sort((a, b) => b.total.compareTo(a.total));
+    final top = sorted.take(7).toList();
+    final rest = sorted.skip(7).toList();
+    final otherTotal = rest.fold<double>(0, (s, c) => s + c.total);
     final total = categories.fold<double>(0, (s, c) => s + c.total);
-    final fmt = NumberFormat('#,##0.##');
+    final display = [
+      ...top,
+      if (otherTotal > 0) CategorySummary(category: 'other', total: otherTotal, count: 0),
+    ];
+
+    Category? findCat(String key) =>
+        categoriesData.where((c) => c.key == key).firstOrNull;
 
     return Column(
       children: [
-        for (var i = 0; i < categories.length; i++)
+        for (var i = 0; i < display.length; i++) ...[
           _CategoryRow(
-            cat: categories[i],
-            color: _kPalette[i % _kPalette.length],
-            pct: total > 0 ? categories[i].total / total : 0,
+            cat: display[i],
+            color: palette[i % palette.length],
+            pct: total > 0 ? display[i].total / total : 0,
             currency: currency,
-            fmt: fmt,
+            locale: locale,
+            categoryObj: findCat(display[i].category),
+            appLocale: appLocale,
           ),
+          const Divider(height: 1),
+        ],
       ],
     );
   }
@@ -271,32 +342,38 @@ class _CategoryRow extends StatelessWidget {
     required this.color,
     required this.pct,
     required this.currency,
-    required this.fmt,
+    required this.locale,
+    required this.categoryObj,
+    required this.appLocale,
   });
 
   final CategorySummary cat;
   final Color color;
   final double pct;
   final String currency;
-  final NumberFormat fmt;
+  final String locale;
+  final Category? categoryObj;
+  final Locale appLocale;
 
   @override
   Widget build(BuildContext context) {
+    final label = categoryObj?.labelFor(appLocale) ?? cat.category;
+    final icon = categoryObj?.iconData ?? Icons.more_horiz;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Container(
-            width: 12,
-            height: 12,
+            width: 10,
+            height: 10,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
           Expanded(
-            child: Text(
-              cat.category,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
           ),
           Text(
             '${(pct * 100).toStringAsFixed(1)}%',
@@ -304,7 +381,7 @@ class _CategoryRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Text(
-            '${fmt.format(cat.total)} $currency',
+            '‎${formatCurrency(cat.total, currency, locale)}',
             style: Theme.of(context)
                 .textTheme
                 .bodyMedium

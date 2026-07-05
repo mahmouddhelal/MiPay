@@ -89,8 +89,9 @@ def login(email: str, password: str, client: httpx.Client) -> str:
 # ── API calls ─────────────────────────────────────────────────────────────────
 
 
-def extract_text(text: str, token: str, client: httpx.Client) -> Optional[dict]:
-    """Condition (a): POST /transactions/extract-text"""
+def extract_text(text: str, token: str, client: httpx.Client) -> Optional[list]:
+    """Condition (a): POST /transactions/extract-text. Returns the list of predicted
+    transactions (possibly empty), or None on transport/HTTP error."""
     r = client.post(
         f"{BASE_URL}/transactions/extract-text",
         json={"text": text, "client_date": EVAL_DATE, "client_locale": EVAL_LOCALE},
@@ -99,14 +100,12 @@ def extract_text(text: str, token: str, client: httpx.Client) -> Optional[dict]:
     )
     if r.status_code != 200:
         return None
-    data = r.json()
-    if data.get("status") == "failed":
-        return None
-    return data.get("extraction")
+    return r.json().get("extractions", [])
 
 
-def extract_voice(audio_path: Path, token: str, client: httpx.Client) -> Optional[dict]:
-    """Condition (b): POST /transactions/voice"""
+def extract_voice(audio_path: Path, token: str, client: httpx.Client) -> Optional[list]:
+    """Condition (b): POST /transactions/voice. Returns the list of predicted
+    transactions (possibly empty), or None on transport/HTTP error."""
     with audio_path.open("rb") as f:
         r = client.post(
             f"{BASE_URL}/transactions/voice",
@@ -117,10 +116,7 @@ def extract_voice(audio_path: Path, token: str, client: httpx.Client) -> Optiona
         )
     if r.status_code != 200:
         return None
-    data = r.json()
-    if data.get("status") == "failed":
-        return None
-    return data.get("extraction")
+    return r.json().get("extractions", [])
 
 
 # ── Comparison helpers ────────────────────────────────────────────────────────
@@ -159,6 +155,45 @@ def _field_match(field: str, pred: Optional[object], gold: Optional[object]) -> 
     return str(pred).strip().lower() == str(gold).strip().lower()
 
 
+# ── Multi-transaction alignment ─────────────────────────────────────────────────
+
+
+def align_transactions(
+    preds: list[dict], golds: list[dict]
+) -> tuple[list[tuple[dict, dict]], list[dict], list[dict]]:
+    """Greedily match predicted transactions to gold by (amount, type) similarity.
+
+    Returns (matched_pairs, unmatched_golds, unmatched_preds). Amount agreement is
+    weighted above type so that e.g. two expenses of 50 and 100 don't get swapped."""
+    used: set[int] = set()
+    pairs: list[tuple[dict, dict]] = []
+    unmatched_golds: list[dict] = []
+
+    for gold in golds:
+        best_score = 0
+        best_i: Optional[int] = None
+        for i, pred in enumerate(preds):
+            if i in used:
+                continue
+            score = 0
+            if _amount_match(pred.get("amount"), float(gold["amount"])):
+                score += 2
+            if str(pred.get("transaction_type")).lower() == str(
+                gold.get("transaction_type")
+            ).lower():
+                score += 1
+            if score > best_score:
+                best_score, best_i = score, i
+        if best_i is not None:
+            used.add(best_i)
+            pairs.append((preds[best_i], gold))
+        else:
+            unmatched_golds.append(gold)
+
+    unmatched_preds = [p for i, p in enumerate(preds) if i not in used]
+    return pairs, unmatched_golds, unmatched_preds
+
+
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
 
@@ -184,6 +219,12 @@ class FieldStats:
         else:
             self.fn[gold_key] += 1
             self.fp[pred_key] += 1
+
+    def add_false_positive(self, pred: Optional[object]) -> None:
+        """Register a spurious prediction (an extra transaction with no gold match).
+        Affects precision/F1 only — not exact-match accuracy (no gold to compare)."""
+        pred_key = str(pred).lower() if pred is not None else "__null__"
+        self.fp[pred_key] += 1
 
     @property
     def accuracy(self) -> float:
@@ -239,10 +280,11 @@ def evaluate_condition(
     """
     stats: dict[str, FieldStats] = {f: FieldStats() for f in EXACT_FIELDS + CLASS_FIELDS}
     skipped = errors = 0
+    count_correct = count_total = 0  # transaction-count accuracy (right number found?)
 
     with httpx.Client() as client:
         for entry in entries:
-            gold_ex = entry["extraction_gold"]
+            gold_list = entry["transactions_gold"]
 
             if condition == "e2e":
                 ap = entry.get("audio_path")
@@ -253,25 +295,38 @@ def evaluate_condition(
                 if not audio_file.exists():
                     skipped += 1
                     continue
-                pred_ex = extract_voice(audio_file, token, client)
+                pred_list = extract_voice(audio_file, token, client)
             else:
-                pred_ex = extract_text(entry["transcript_gold"], token, client)
+                pred_list = extract_text(entry["transcript_gold"], token, client)
 
-            if pred_ex is None:
+            if pred_list is None:
                 print(f"  [null] {entry['id']}: pipeline returned null", file=sys.stderr)
                 errors += 1
-                # Count all fields as wrong
-                for f in stats:
-                    stats[f].update(None, gold_ex.get(f), f)
-                continue
+                pred_list = []  # treat as zero transactions → all gold unmatched
 
-            for f in stats:
-                stats[f].update(pred_ex.get(f), gold_ex.get(f), f)
+            # Did we detect the right number of transactions?
+            count_total += 1
+            if len(pred_list) == len(gold_list):
+                count_correct += 1
+
+            # Align predictions to gold, then score per matched pair.
+            pairs, unmatched_golds, unmatched_preds = align_transactions(pred_list, gold_list)
+            for pred, gold in pairs:
+                for f in stats:
+                    stats[f].update(pred.get(f), gold.get(f), f)
+            for gold in unmatched_golds:  # missed transactions → wrong on every field
+                for f in stats:
+                    stats[f].update(None, gold.get(f), f)
+            for pred in unmatched_preds:  # spurious transactions → FP for class fields
+                for f in CLASS_FIELDS:
+                    stats[f].add_false_positive(pred.get(f))
 
     tag = f"[{condition.upper()}]" + (f" {label}" if label else "")
     n_total = len(entries) - skipped
+    count_acc = count_correct / count_total if count_total else float("nan")
     print(f"\n{'=' * 60}")
     print(f"  Condition: {tag}   n={n_total}  skipped={skipped}  failed={errors}")
+    print(f"  Transaction-count accuracy: {count_acc:.1%}  ({count_correct}/{count_total})")
     print(f"{'=' * 60}")
     _print_table(stats)
 
@@ -281,6 +336,7 @@ def evaluate_condition(
         "n": n_total,
         "skipped": skipped,
         "failed": errors,
+        "transaction_count_accuracy": round(count_acc, 4) if count_total else None,
         "fields": {f: s.to_dict() for f, s in stats.items()},
     }
 

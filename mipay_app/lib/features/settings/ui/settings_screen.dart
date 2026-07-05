@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
+import '../../../core/providers/theme_mode_provider.dart';
 import '../../auth/providers/auth_controller.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -22,7 +23,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final auth = ref.read(authControllerProvider);
     final user = auth is AuthAuthenticated ? auth.user : null;
     _nameCtrl = TextEditingController(text: user?.displayName ?? '');
-    _currencyCtrl = TextEditingController(text: user?.defaultCurrency ?? 'SAR');
+    _currencyCtrl = TextEditingController(text: user?.defaultCurrency ?? 'EGP');
   }
 
   @override
@@ -129,6 +130,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             selected: {currentLocale},
             onSelectionChanged: (sel) => _switchLocale(sel.first),
           ),
+          const SizedBox(height: 24),
+          // ── Appearance section ────────────────────────────────────────────
+          _SectionHeader(title: 'Appearance'),
+          const SizedBox(height: 8),
+          SegmentedButton<ThemeMode>(
+            segments: const [
+              ButtonSegment(
+                value: ThemeMode.system,
+                icon: Icon(Icons.brightness_auto),
+                label: Text('System'),
+              ),
+              ButtonSegment(
+                value: ThemeMode.light,
+                icon: Icon(Icons.light_mode),
+                label: Text('Light'),
+              ),
+              ButtonSegment(
+                value: ThemeMode.dark,
+                icon: Icon(Icons.dark_mode),
+                label: Text('Dark'),
+              ),
+            ],
+            selected: {ref.watch(themeModeProvider)},
+            onSelectionChanged: (sel) =>
+                ref.read(themeModeProvider.notifier).set(sel.first),
+          ),
           const SizedBox(height: 32),
           // ── Account section ───────────────────────────────────────────────
           _SectionHeader(title: l10n.account),
@@ -159,7 +186,7 @@ class _SectionHeader extends StatelessWidget {
       style: Theme.of(context)
           .textTheme
           .labelLarge
-          ?.copyWith(color: Theme.of(context).colorScheme.primary),
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
     );
   }
 }

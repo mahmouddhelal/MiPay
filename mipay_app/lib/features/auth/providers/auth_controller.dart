@@ -75,7 +75,7 @@ class AuthController extends StateNotifier<AuthState> {
     required String email,
     required String password,
     required String displayName,
-    String defaultCurrency = 'SAR',
+    String defaultCurrency = 'EGP',
   }) async {
     state = const AuthLoading();
     try {

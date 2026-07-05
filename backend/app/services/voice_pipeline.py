@@ -16,16 +16,29 @@ from fastapi import UploadFile
 
 from app.services import extraction as extraction_svc
 from app.services.audio import save_and_convert
-from app.services.postprocess import FinalExtraction, normalize_numerals, postprocess
+from app.services.postprocess import (
+    FinalExtraction,
+    normalize_numerals,
+    postprocess_many,
+)
 from app.services.stt import STTService
 
 
 @dataclass(frozen=True)
+class PipelineItem:
+    """One extracted transaction plus its own review status."""
+    status: Literal["ok", "needs_review"]
+    extraction: FinalExtraction
+
+
+@dataclass(frozen=True)
 class PipelineResult:
+    # Top-level: "failed" if the transcript was empty or zero transactions were
+    # found; "needs_review" if any item needs review; otherwise "ok".
     status: Literal["ok", "needs_review", "failed"]
     transcript: str
     detected_language: str | None
-    extraction: FinalExtraction | None
+    items: list[PipelineItem]
     timing_ms: dict[str, int]
 
 
@@ -42,7 +55,7 @@ async def _extract_and_post(
     if not transcript:
         return PipelineResult(
             status="failed", transcript="", detected_language=detected_language,
-            extraction=None,
+            items=[],
             timing_ms=_timing(start, stt_ms, extraction_ms=None),
         )
 
@@ -50,12 +63,27 @@ async def _extract_and_post(
     raw = await extraction_svc.extract(transcript)  # raises ExtractionError → 502
     extraction_ms = int((time.monotonic() - t0) * 1000)
 
-    result = postprocess(raw, transcript, client_date, default_currency)
+    raw_transactions = raw.get("transactions", []) if isinstance(raw, dict) else []
+    results = postprocess_many(raw_transactions, client_date, default_currency)
+    items = [
+        PipelineItem(status=r.status, extraction=r.extraction)  # type: ignore[arg-type]
+        for r in results
+        if r.extraction is not None and r.status in ("ok", "needs_review")
+    ]
+
+    # Top-level status: failed if nothing extracted; needs_review if any item does.
+    if not items:
+        status: str = "failed"
+    elif any(it.status == "needs_review" for it in items):
+        status = "needs_review"
+    else:
+        status = "ok"
+
     return PipelineResult(
-        status=result.status,
+        status=status,  # type: ignore[arg-type]
         transcript=transcript,
         detected_language=detected_language,
-        extraction=result.extraction,
+        items=items,
         timing_ms=_timing(start, stt_ms, extraction_ms),
     )
 

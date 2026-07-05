@@ -40,6 +40,7 @@ class RawExtraction(BaseModel):
 
 # dateparser misses some dialect forms; map them to phrases it understands.
 _DIALECT_DATE_MAP = {
+    # yesterday variants
     "أمس": "yesterday",
     "امس": "yesterday",
     "البارح": "yesterday",
@@ -47,15 +48,34 @@ _DIALECT_DATE_MAP = {
     "امبارح": "yesterday",
     "إمبارح": "yesterday",
     "أمبارح": "yesterday",
+    "مبارح": "yesterday",
+    # day before yesterday
     "أول أمس": "2 days ago",
     "اول امس": "2 days ago",
     "أول البارح": "2 days ago",
     "اول البارح": "2 days ago",
     "أول امبارح": "2 days ago",
     "اول امبارح": "2 days ago",
+    "اول مبارح": "2 days ago",
+    # today variants (Egyptian STT often drops ال)
     "اليوم": "today",
     "النهارده": "today",
     "النهاردة": "today",
+    "انهارده": "today",
+    "انهاردة": "today",
+    "النهارد": "today",
+    # now
+    "دلوقتي": "today",
+    "دلوقتى": "today",
+    # last week / last month
+    "الاسبوع اللي فات": "last week",
+    "الأسبوع اللي فات": "last week",
+    "الشهر اللي فات": "last month",
+    "الشهر اللى فات": "last month",
+    # N days/weeks ago
+    "من يومين": "2 days ago",
+    "من اسبوع": "1 week ago",
+    "من أسبوع": "1 week ago",
 }
 
 # Retry transforms for phrases dateparser 1.x can't parse directly (verified):
@@ -113,16 +133,14 @@ class PostprocessResult:
     extraction: FinalExtraction | None
 
 
-def postprocess(
+def postprocess_item(
     raw: dict,
-    transcript: str,
     client_date: date_type,
     default_currency: str,
 ) -> PostprocessResult:
-    """§4.5 steps 1–6: validate, resolve date, fill defaults, decide status."""
-    if not transcript.strip():
-        return PostprocessResult(status="failed", extraction=None)
-
+    """§4.5 steps 1,3–6 for a SINGLE transaction object: validate, resolve date,
+    fill defaults, decide ok/needs_review. The empty-transcript `failed` check
+    (step 2) is a per-utterance concern handled by the callers below."""
     try:
         parsed = RawExtraction.model_validate(raw)
     except ValidationError as exc:
@@ -154,3 +172,37 @@ def postprocess(
     ):
         return PostprocessResult(status="needs_review", extraction=extraction)
     return PostprocessResult(status="ok", extraction=extraction)
+
+
+def postprocess(
+    raw: dict,
+    transcript: str,
+    client_date: date_type,
+    default_currency: str,
+) -> PostprocessResult:
+    """§4.5 steps 1–6 for a single transaction. Kept for the unit tests and any
+    single-object caller; delegates the per-item work to postprocess_item()."""
+    if not transcript.strip():
+        return PostprocessResult(status="failed", extraction=None)
+    return postprocess_item(raw, client_date, default_currency)
+
+
+def postprocess_many(
+    raw_list: list[dict],
+    client_date: date_type,
+    default_currency: str,
+) -> list[PostprocessResult]:
+    """Post-process every transaction object the LLM returned for one utterance.
+
+    Drops junk items where both transaction_type and amount are null (a stray
+    array element with nothing to show). Each surviving item carries its own
+    ok/needs_review status; the per-utterance `failed` decision is the caller's."""
+    results: list[PostprocessResult] = []
+    for raw in raw_list:
+        # Skip obviously-empty objects before they become blank confirm cards.
+        if isinstance(raw, dict) and raw.get("transaction_type") is None and raw.get("amount") is None:
+            continue
+        result = postprocess_item(raw, client_date, default_currency)
+        if result.extraction is not None:
+            results.append(result)
+    return results

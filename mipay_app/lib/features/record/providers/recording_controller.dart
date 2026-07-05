@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../../core/api/api_exceptions.dart';
+import '../../../core/providers/current_user_provider.dart';
 import '../data/voice_repository.dart';
 import '../models/voice_extraction.dart';
 
@@ -157,6 +158,8 @@ class RecordingController extends StateNotifier<RecordingState> {
 }
 
 final recordingControllerProvider =
-    StateNotifierProvider<RecordingController, RecordingState>((ref) {
+    StateNotifierProvider.autoDispose<RecordingController, RecordingState>(
+        (ref) {
+  ref.watch(currentUserIdProvider); // reset when user changes
   return RecordingController(ref.watch(voiceRepositoryProvider));
 });

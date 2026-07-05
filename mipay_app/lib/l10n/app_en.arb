@@ -42,6 +42,16 @@
   "uploading": "Uploading…",
 
   "confirmTransaction": "Confirm Transaction",
+  "confirmTransactionsTitle": "Confirm {count} Transactions",
+  "@confirmTransactionsTitle": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "saveAll": "Save All ({count})",
+  "@saveAll": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "removeTransaction": "Remove",
+  "noTransactionsDetected": "No transactions detected — add one manually",
   "addTransaction": "Add Transaction",
   "needsReview": "Some fields need your attention",
   "extractionFailed": "Could not extract — enter manually",
@@ -79,6 +89,18 @@
   "business": "Business",
   "transferIn": "Transfer In",
   "other": "Other",
+  "coffee": "Coffee & Cafés",
+  "internetMobile": "Internet & Mobile",
+  "subscriptions": "Subscriptions",
+  "household": "Home & Family",
+  "tuition": "Private Lessons",
+  "clothes": "Clothes",
+  "pets": "Pets",
+  "insurance": "Insurance",
+  "savings": "Savings & Gam'eya",
+  "transferOut": "Transfer Out",
+  "freelance": "Freelance",
+  "investments": "Investments",
 
   "errorInvalidCredentials": "Invalid email or password.",
   "errorRequired": "This field is required.",

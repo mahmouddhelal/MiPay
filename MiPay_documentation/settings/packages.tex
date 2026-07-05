@@ -1,0 +1,79 @@
+% packages.tex — all package imports live here
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage[numbers,sort&compress]{natbib} % Numeric citations
+\usepackage{graphicx}        % For figures
+\usepackage{xcolor}          % Colours (used by listings + placeholders)
+\usepackage{tikz}            % For hand-drawn diagrams (e.g. friction comparison)
+\usetikzlibrary{shapes.geometric,positioning,arrows.meta,shadows}
+\usepackage{amsmath}         % For equations
+\usepackage{amssymb}
+\usepackage{enumitem}        % For lists
+\usepackage{booktabs}        % For tables
+\usepackage{caption}         % For captions
+\usepackage{subcaption}      % For sub-figures
+\usepackage{tabularx}
+\usepackage{longtable}       % Multi-page tables
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{float}
+\usepackage{listings}        % Source-code listings
+\usepackage{algorithm}
+\usepackage{algpseudocode}   % algorithmic environment
+\usepackage{fancyhdr}        % Page headers/footers
+\usepackage{setspace}        % Line spacing
+\usepackage{microtype}       % Better justification
+\usepackage[hidelinks]{hyperref} % For hyperlinks (load late)
+
+% ── Page style ──────────────────────────────────────────────────────────────
+\onehalfspacing
+\setlength{\parskip}{0.4em}
+
+% ── Listings style (Python / Dart / JSON / SQL) ─────────────────────────────
+\definecolor{codegreen}{rgb}{0.0,0.45,0.30}
+\definecolor{codegray}{rgb}{0.45,0.45,0.45}
+\definecolor{codepurple}{rgb}{0.50,0.15,0.55}
+\definecolor{codeblue}{rgb}{0.10,0.25,0.65}
+\definecolor{backcolour}{rgb}{0.97,0.97,0.95}
+
+\lstdefinestyle{mipay}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen}\itshape,
+    keywordstyle=\color{codeblue}\bfseries,
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=6pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    frame=single,
+    framerule=0.3pt,
+    rulecolor=\color{codegray},
+    tabsize=2,
+    columns=fullflexible,
+    upquote=true,
+    literate={’}{'}1 {‘}{'}1
+}
+% listings has no built-in JSON language — define a minimal one
+\lstdefinelanguage{json}{
+    keywords={true,false,null},
+    keywordstyle=\color{codeblue}\bfseries,
+    sensitive=true,
+    morestring=[b]",
+    stringstyle=\color{codepurple},
+    comment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    commentstyle=\color{codegreen}\itshape,
+}
+
+\lstset{style=mipay}
+

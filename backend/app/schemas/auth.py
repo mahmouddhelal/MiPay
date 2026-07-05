@@ -7,7 +7,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     display_name: str
-    default_currency: str = "SAR"
+    default_currency: str = "EGP"
 
     @field_validator("password")
     @classmethod

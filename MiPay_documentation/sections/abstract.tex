@@ -1,0 +1,57 @@
+% abstract.tex
+\begin{abstract}
+\noindent
+Personal financial management depends on the dull, error-prone discipline of
+recording every transaction. Most people abandon expense-tracking applications
+not because the analytics are poor but because the \emph{data-entry friction} is
+too high: navigating forms, dropdowns, and keyboards for each coffee or taxi
+fare is incompatible with the moments in which spending actually happens. This
+project, \textbf{MiPay}, attacks that friction directly with a
+\emph{voice-first} interaction model: the user presses a single button, speaks a
+natural sentence describing money spent or received---in Arabic, English, or a
+code-switched mixture of both---and the system returns a structured, editable
+transaction ready to save.
+
+The central academic contribution is that the entire artificial-intelligence
+pipeline is \emph{self-hosted and built from open-source models}, rather than a
+thin wrapper over a commercial cloud API. Speech is transcribed by a locally
+hosted Whisper model served through \texttt{faster-whisper} (a CTranslate2
+re-implementation that is roughly four times faster than the reference
+implementation on CPU). The transcript is then converted into structured
+financial fields---transaction type, amount, currency, category, counterparty,
+and date---by a 7-billion-parameter open-weight instruction-tuned large language
+model (Qwen2.5-7B-Instruct) served locally through Ollama. Crucially, the model
+is invoked with \emph{JSON-schema-constrained decoding}, which guarantees that
+every response is syntactically valid and conforms to the target schema,
+eliminating an entire class of parsing failures common to prompt-only JSON
+generation. A deterministic, unit-tested post-processing layer then handles the
+tasks that language models perform unreliably---Arabic-Indic numeral
+normalization, relative-date resolution (``yesterday'', the Arabic ``ams'',
+``last Friday''), currency defaulting, and a confidence-aware
+\texttt{needs\_review} decision---before a human-in-the-loop confirmation step
+commits anything to the database.
+
+The system is delivered as a Flutter mobile application backed by a FastAPI
+service, PostgreSQL, and Ollama, fully containerized with Docker Compose, and
+supports three input modes (voice, typed text, and fully manual entry) that all
+converge on the same confirmation and save path. The self-hosted design yields
+three properties that a cloud wrapper cannot claim: \emph{zero per-request
+inference cost}, \emph{full data privacy} (audio is deleted immediately after
+transcription and never leaves the operator's machine), and a genuine
+\emph{model-selection and evaluation methodology} suitable for academic scrutiny.
+
+We evaluate the pipeline on a purpose-built corpus of more than 260 labeled
+bilingual utterances using Word Error Rate for transcription and per-field
+exact-match accuracy and F\textsubscript{1} for extraction, under two conditions
+(gold-transcript and full end-to-end audio), together with ablations across
+Whisper model sizes, language-model sizes, and few-shot versus zero-shot
+prompting. The thesis documents the system as built and articulates a concrete
+upgrade path---larger and newer speech and language models, and task-specific
+fine-tuning on user-corrected data---as principled future work.
+
+\vspace{0.4cm}
+\noindent\textbf{Keywords:} speech recognition, large language models,
+information extraction, constrained decoding, Arabic natural language processing,
+code-switching, personal finance, edge AI, privacy-preserving machine learning,
+Flutter, FastAPI.
+\end{abstract}

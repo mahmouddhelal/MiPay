@@ -2,28 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
-import '../../record/models/voice_extraction.dart';
 import '../data/transactions_repository.dart';
 import '../models/transaction.dart';
 import '../providers/transactions_provider.dart';
+import '../../dashboard/providers/summary_provider.dart';
 
 const _currencies = [
-  'SAR', 'USD', 'EUR', 'EGP', 'AED', 'KWD', 'QAR',
+  'EGP', 'USD', 'EUR', 'SAR', 'AED', 'KWD', 'QAR',
   'BHD', 'OMR', 'JOD', 'IQD', 'MAD', 'TND', 'LBP',
 ];
 
-/// Manual entry + edit form (FR-08/FR-09), and — when [voiceResult] is given —
-/// the confirm sheet for voice/text extraction (§7.2 screen 5).
+/// Manual entry + edit form (FR-08/FR-09). The voice/text extraction confirm
+/// flow lives in ConfirmTransactionsScreen (it can hold several transactions).
 class TransactionFormScreen extends ConsumerStatefulWidget {
-  const TransactionFormScreen({super.key, this.existing, this.voiceResult});
+  const TransactionFormScreen({super.key, this.existing});
 
   /// When non-null the form edits this transaction; otherwise it creates one.
   final Transaction? existing;
-
-  /// When non-null the form is the extraction confirm sheet: fields are
-  /// prefilled, the transcript is quoted on top, and the save carries
-  /// source='voice' + the transcript.
-  final VoiceExtractionResult? voiceResult;
 
   @override
   ConsumerState<TransactionFormScreen> createState() => _TransactionFormScreenState();
@@ -45,15 +40,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   void initState() {
     super.initState();
     final e = widget.existing;
-    final v = widget.voiceResult?.extraction;
-    _type = e?.transactionType ?? v?.transactionType ?? 'expense';
-    _currency = e?.currency ?? v?.currency ?? 'SAR';
-    _categoryKey = e?.category ?? v?.category;
-    _date = e?.date ?? v?.date ?? DateTime.now();
-    final amount = e?.amount ?? v?.amount;
+    _type = e?.transactionType ?? 'expense';
+    _currency = e?.currency ?? 'EGP';
+    _categoryKey = e?.category;
+    _date = e?.date ?? DateTime.now();
+    final amount = e?.amount;
     _amountCtrl =
         TextEditingController(text: amount != null ? amount.toStringAsFixed(2) : '');
-    _nameCtrl = TextEditingController(text: e?.name ?? v?.name ?? '');
+    _nameCtrl = TextEditingController(text: e?.name ?? '');
     _noteCtrl = TextEditingController(text: e?.note ?? '');
   }
 
@@ -77,7 +71,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     setState(() => _saving = true);
     final repo = ref.read(transactionsRepositoryProvider);
-    final voice = widget.voiceResult;
     final draft = TransactionDraft(
       transactionType: _type,
       amount: double.parse(_amountCtrl.text.trim()),
@@ -86,8 +79,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       name: _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
       date: _date,
       note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-      source: voice != null ? 'voice' : 'manual',
-      transcript: voice?.transcript,
+      source: 'manual',
     );
 
     try {
@@ -97,12 +89,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         await repo.create(draft);
       }
       ref.invalidate(transactionsProvider);
+      ref.invalidate(summaryProvider);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(e.toString())),
         );
       }
     }
@@ -114,18 +107,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     final locale = Localizations.localeOf(context);
     final categoriesAsync = ref.watch(categoriesProvider);
     final isEdit = widget.existing != null;
-    final voice = widget.voiceResult;
-    // Extraction may return a currency outside our short picker list
+    // An edited transaction may carry a currency outside our short picker list
     final currencyItems =
         _currencies.contains(_currency) ? _currencies : [_currency, ..._currencies];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(voice != null
-            ? l10n.confirmTransaction
-            : isEdit
-                ? l10n.edit
-                : l10n.addTransaction),
+        title: Text(isEdit ? l10n.edit : l10n.addTransaction),
       ),
       body: SafeArea(
         child: Form(
@@ -133,55 +121,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Confirm-sheet extras: quoted transcript + review banner
-              if (voice != null && voice.transcript.isNotEmpty) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.format_quote, size: 16),
-                          const SizedBox(width: 4),
-                          Text(l10n.transcript,
-                              style: Theme.of(context).textTheme.labelSmall),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text('"${voice.transcript}"',
-                          style: Theme.of(context).textTheme.bodyMedium),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-              if (voice != null && voice.needsReview) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber, color: Colors.amber.shade900),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(l10n.needsReview,
-                            style: TextStyle(color: Colors.amber.shade900)),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
               // Type toggle
               SegmentedButton<String>(
                 segments: [

@@ -14,7 +14,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    default_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="SAR")
+    default_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="EGP")
     locale: Mapped[str] = mapped_column(String(5), nullable=False, default="en")
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(

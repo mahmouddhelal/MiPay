@@ -1,0 +1,297 @@
+\chapter{Related Work}
+
+\setlength{\parindent}{1em}
+
+This chapter situates MiPay within the relevant literature. The system draws on
+four research streams: (i) automatic speech recognition, particularly
+large-scale multilingual models; (ii) large language models and instruction
+following; (iii) structured information extraction and constrained decoding; and
+(iv) Arabic and code-switched natural-language processing. After reviewing the
+foundational and recent work in each stream, the chapter examines a set of
+directly comparable studies using a consistent four-part breakdown
+(methodology, results, main features, limitations), and closes with a
+comparative analysis that positions MiPay against them.
+
+\section{Foundations and Research Streams}
+
+\subsection{Automatic Speech Recognition}
+
+Speech recognition progressed in three broad waves. The first replaced
+Gaussian-mixture acoustic models with deep neural networks inside a
+hidden-Markov-model framework, cutting error rates substantially on benchmark
+tasks~\cite{hinton2012deep} and crystallizing in toolkits such as
+Kaldi~\cite{povey2011kaldi}. The second wave introduced end-to-end neural
+training, removing the hand-engineered pronunciation lexicons and alignment
+stages. Connectionist Temporal Classification (CTC) made it possible to train
+sequence models without frame-level alignment~\cite{graves2006ctc}, and
+self-supervised pre-training on unlabeled audio, exemplified by
+wav2vec\,2.0~\cite{baevski2020wav2vec}, sharply reduced the amount of labeled
+speech needed to reach competitive accuracy.
+
+The third wave---and the one MiPay builds upon---is large-scale weakly
+supervised sequence-to-sequence modeling. Whisper~\cite{radford2023whisper}
+trains an encoder--decoder transformer~\cite{vaswani2017attention} on 680{,}000
+hours of multilingual, multitask audio scraped from the web. Rather than chasing
+a single benchmark, Whisper optimizes for \emph{robustness}: it generalizes
+across accents, recording conditions, and languages without dataset-specific
+fine-tuning, and it performs language identification, transcription, and
+translation within one model. This robustness, and its strong zero-shot Arabic
+and English performance, are precisely the properties a bilingual,
+real-world voice application needs. Multilingual speech corpora such as Common
+Voice~\cite{ardila2020commonvoice} and Arabic-specific benchmarks such as the
+MGB-2 broadcast challenge~\cite{ali2016mgb2} provide the evaluation context
+against which such models' Arabic capabilities are understood.
+
+\subsection{Large Language Models and Instruction Following}
+
+The transformer architecture~\cite{vaswani2017attention} underpins both modern
+ASR and modern language modeling. On the language side, two ideas converged to
+produce today's general-purpose models. First, scaling autoregressive language
+modeling produced \emph{emergent few-shot ability}: GPT-3 showed that a
+sufficiently large model could perform new tasks from a handful of in-context
+examples with no gradient updates~\cite{brown2020gpt3,radford2019gpt2}. Second,
+\emph{instruction tuning} aligned these models with human task descriptions:
+FLAN demonstrated that fine-tuning on a diverse set of instructions improves
+zero-shot generalization~\cite{wei2022flan}, and reinforcement learning from
+human feedback (InstructGPT) further aligned model behavior with user
+intent~\cite{ouyang2022instructgpt}. Prompting strategies such as chain-of-thought
+reasoning~\cite{wei2022cot} and the broader prompting
+literature~\cite{liu2023promptsurvey} expanded what could be elicited without
+retraining.
+
+Open-weight models brought these capabilities on-premises. LLaMA showed that
+carefully trained smaller models could rival much larger closed
+ones~\cite{touvron2023llama}, and the Qwen series~\cite{yang2024qwen2,qwen2024qwen25}
+pushed strong multilingual---including Arabic---instruction following down to the
+7-billion-parameter scale that fits on commodity hardware. Efficient-inference
+research makes such local deployment practical: 8-bit and 4-bit post-training
+quantization~\cite{dettmers2022llmint8,frantar2023gptq} shrinks memory footprints
+with little quality loss, which is what allows MiPay to host both a speech model
+and a language model on a single 16\,GB machine.
+
+\subsection{Structured Extraction and Constrained Decoding}
+
+Turning free text into typed records is information extraction, classically
+framed as named-entity recognition and slot filling. Neural sequence labelers
+such as BiLSTM-CRF~\cite{lample2016ner} and the large body of deep-learning NER
+work surveyed by Li et al.~\cite{li2022ner} achieve high accuracy but depend on
+substantial labeled training data. The generative-LLM alternative trades that
+data requirement for prompt engineering, but introduces a new failure mode:
+free-form generation can violate the required output format.
+
+Constrained (guided) decoding closes this gap. By intersecting the model's
+token distribution at each step with a finite-state machine compiled from a
+regular expression, grammar, or JSON schema, the decoder can only emit
+continuations that keep the output valid~\cite{willard2023outlines}.
+Grammar-constrained decoding has been shown to improve structured-NLP task
+performance without any fine-tuning~\cite{geng2023grammar}. MiPay uses exactly
+this mechanism---Ollama's schema-constrained \texttt{format} option---so that
+extraction output is guaranteed to be valid JSON conforming to the transaction
+schema, and enum fields can never take an illegal value.
+
+\subsection{Arabic and Code-Switched NLP}
+
+Arabic NLP is complicated by morphological richness, diglossia, and orthographic
+variation. Tooling such as Farasa~\cite{abdelali2016farasa} and CAMeL
+Tools~\cite{obeid2020camel} addresses segmentation and morphological analysis,
+while AraBERT~\cite{antoun2020arabert} and multilingual encoders
+XLM-R~\cite{conneau2020xlmr} provide contextual representations for Arabic
+understanding tasks. Code-switching---fluidly mixing two languages---is itself a
+distinct research area~\cite{sitaram2019codeswitch}, posing problems for systems
+that assume a single language per input. MiPay's design responds to this
+literature pragmatically: rather than building a dedicated code-switching model,
+it leans on Whisper's and Qwen's multilingual pre-training to absorb mixed input,
+and isolates the brittle, language-specific operations (Arabic-Indic numeral
+mapping, dialectal date phrases) in a deterministic, separately tested layer.
+
+\section{Summary of Recent Studies}
+
+The following studies are the most directly comparable to MiPay. Each is reviewed
+under a consistent breakdown to keep the later comparison meaningful.
+
+\subsection{Robust Speech Recognition via Large-Scale Weak Supervision (Whisper)}
+
+\subsubsection{Methodology}
+Radford et al.~\cite{radford2023whisper} train an encoder--decoder transformer on
+680{,}000 hours of weakly labeled multilingual audio collected from the web,
+formulating transcription, translation, language identification, and
+voice-activity detection as a single multitask sequence-prediction problem
+conditioned on special task tokens.
+
+\subsubsection{Results}
+The models approach human-level robustness on out-of-distribution English
+benchmarks in a zero-shot setting and deliver strong multilingual performance,
+including competitive Arabic transcription, without per-dataset fine-tuning.
+Accuracy scales monotonically with model size from \texttt{tiny} to
+\texttt{large}.
+
+\subsubsection{Main Features}
+A single model covering 99 languages; robustness to noise and accent; built-in
+language detection; permissive open release of weights.
+
+\subsubsection{Limitations}
+Inference is comparatively heavy for the larger sizes; the model can hallucinate
+text during long silences (mitigated by voice-activity filtering); and it detects
+a single dominant language per clip rather than explicitly modeling
+code-switching.
+
+\subsubsection{Implications and Contributions}
+Whisper is the speech backbone of MiPay. Its open weights and multilingual
+robustness are what make a self-hosted bilingual ASR stage feasible; its CPU cost
+motivates the use of \texttt{faster-whisper}/CTranslate2 and quantization.
+
+\subsection{Qwen2.5: An Open Multilingual Instruction-Tuned LLM}
+
+\subsubsection{Methodology}
+The Qwen2.5 technical report~\cite{qwen2024qwen25} describes a family of
+decoder-only transformers pre-trained on a large multilingual corpus and then
+instruction-tuned and preference-aligned, released openly across a range of
+parameter scales including 3B and 7B.
+
+\subsubsection{Results}
+The models report strong results on multilingual understanding, reasoning, coding,
+and structured-output benchmarks, with the 7B instruct variant offering a
+favorable quality-to-resource ratio and solid Arabic instruction following.
+
+\subsubsection{Main Features}
+Open weights at deployable scales; strong multilingual coverage; reliable
+instruction following and JSON formatting; compatibility with local servers such
+as Ollama and with quantized inference.
+
+\subsubsection{Limitations}
+Like all LLMs it can produce semantically incorrect values, is unreliable at
+exact arithmetic (including date computation), and its quality degrades at the
+smaller 3B scale used as a low-resource fallback.
+
+\subsubsection{Implications and Contributions}
+Qwen2.5-7B-Instruct is MiPay's extraction engine. Its multilingual competence
+removes the need for task-specific training data, while its known arithmetic
+unreliability directly motivates MiPay's deterministic date-resolution layer.
+
+\subsection{Efficient Guided Generation for Large Language Models}
+
+\subsubsection{Methodology}
+Willard and Louf~\cite{willard2023outlines} formulate constrained generation as
+indexing a finite-state machine over the model's vocabulary, enabling
+regex- and JSON-schema-guided decoding with negligible per-token overhead.
+
+\subsubsection{Results}
+The method guarantees that generated text matches the supplied
+grammar/schema while preserving generation speed, eliminating post-hoc parsing
+and retry loops.
+
+\subsubsection{Main Features}
+Output validity by construction; support for regular expressions and JSON
+schemas; model-agnostic applicability.
+
+\subsubsection{Limitations}
+Constraints govern \emph{form}, not \emph{semantics}: a schema-valid output can
+still be factually wrong, so a downstream validation or human-review step remains
+necessary.
+
+\subsubsection{Implications and Contributions}
+This is the theoretical basis for MiPay's reliance on schema-constrained
+decoding. It justifies the architectural decision to treat the LLM's JSON as
+always parseable and to place semantic safeguards in post-processing and human
+confirmation rather than in defensive parsing.
+
+\subsection{Grammar-Constrained Decoding for Structured NLP Tasks}
+
+\subsubsection{Methodology}
+Geng et al.~\cite{geng2023grammar} apply context-free-grammar constraints during
+decoding to a range of structured NLP tasks, without fine-tuning the underlying
+model.
+
+\subsubsection{Results}
+Constrained decoding improves output validity and task accuracy relative to
+unconstrained prompting on several structured benchmarks.
+
+\subsubsection{Main Features}
+No fine-tuning required; general grammar support; consistent gains on
+structure-sensitive tasks.
+
+\subsubsection{Limitations}
+Designing a correct grammar/schema is itself non-trivial, and overly tight
+constraints can suppress otherwise-correct outputs.
+
+\subsubsection{Implications and Contributions}
+Reinforces the schema-first extraction strategy and validates that constraint at
+decode time, rather than correction after the fact, is the principled way to get
+structured output from a general model.
+
+\subsection{AraBERT and Arabic Language Understanding}
+
+\subsubsection{Methodology}
+Antoun et al.~\cite{antoun2020arabert} pre-train a BERT-style encoder on a large
+Arabic corpus with Arabic-specific preprocessing (e.g., Farasa
+segmentation~\cite{abdelali2016farasa}).
+
+\subsubsection{Results}
+AraBERT outperforms multilingual baselines on Arabic sentiment, NER, and
+question-answering tasks, establishing the value of language-specific
+pre-training and preprocessing.
+
+\subsubsection{Main Features}
+Strong Arabic representations; demonstrated benefit of morphological
+preprocessing; open release.
+
+\subsubsection{Limitations}
+As an encoder it performs classification/labeling rather than generation, and it
+requires labeled data for each downstream slot-filling task---precisely the data
+MiPay does not have for bilingual financial extraction.
+
+\subsubsection{Implications and Contributions}
+AraBERT represents the supervised alternative MiPay deliberately defers to future
+work. It also informs MiPay's Arabic normalization choices in the evaluation
+harness (diacritic stripping, alef/ta-marbuta unification).
+
+\section{Comparative Analysis of Related Studies}
+
+Table~\ref{tab:related-comparison} compares the reviewed approaches along the
+axes that matter for a self-hosted bilingual finance application: the task each
+addresses, whether it needs task-specific labeled data, its native handling of
+Arabic and code-switching, whether it can run self-hosted on commodity hardware,
+and whether it yields guaranteed-structured output.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of related approaches against MiPay's requirements.}
+\label{tab:related-comparison}
+\small
+\renewcommand{\arraystretch}{1.3}
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{
+  >{\raggedright\arraybackslash}p{2.4cm}
+  >{\raggedright\arraybackslash}p{1.7cm}
+  >{\raggedright\arraybackslash}p{2.1cm}
+  >{\centering\arraybackslash}p{1.6cm}
+  >{\centering\arraybackslash}p{1.4cm}
+  >{\centering\arraybackslash}p{1.9cm}
+}
+\toprule
+\textbf{Approach} & \textbf{Primary task} & \textbf{Needs labeled data} & \textbf{Arabic / mixed} & \textbf{Self-host} & \textbf{Structured out} \\
+\midrule
+Whisper~\cite{radford2023whisper} & Speech-to-text & No (zero-shot) & Strong & Yes & N/A \\
+Qwen2.5-7B~\cite{qwen2024qwen25} & General LLM & No (few-shot) & Good & Yes & Via prompting \\
+Guided decoding~\cite{willard2023outlines} & Output control & No & N/A & Yes & Guaranteed \\
+BiLSTM-CRF NER~\cite{lample2016ner} & Slot filling & Yes (large) & Needs corpus & Yes & Tags only \\
+AraBERT~\cite{antoun2020arabert} & Arabic understanding & Yes & Strong (MSA) & Yes & Tags only \\
+Rule/regex systems & Pattern match & No & Brittle & Yes & Rigid \\
+\midrule
+\textbf{MiPay (this work)} & \textbf{Voice $\rightarrow$ records} & \textbf{No} & \textbf{Native (mixed)} & \textbf{Yes} & \textbf{Guaranteed} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The comparison clarifies MiPay's position. No single prior system delivers the
+full requirement---bilingual voice in, validated structured financial records
+out, self-hosted, without labeled training data. MiPay's contribution is the
+\emph{composition}: Whisper supplies robust multilingual transcription; a
+few-shot, schema-constrained Qwen2.5-7B supplies training-data-free structured
+extraction with guaranteed-valid output; and a deterministic post-processing
+layer supplies the exactness (numerals, dates, currency) that neither the speech
+model nor the language model provides reliably. The supervised
+approaches~\cite{lample2016ner,antoun2020arabert} are not competitors but a
+documented future direction, to be pursued once user-corrected data accumulates
+(Chapter~6). This synthesis---rather than any one component---is what the
+remainder of the thesis designs, implements, and evaluates.

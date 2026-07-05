@@ -17,7 +17,12 @@
       "Bash(curl -s http://localhost:8000/redoc -o /dev/null -w \"%{http_code}\")",
       "Bash(python3 -c ' *)",
       "Bash(python3 normalize_ar.py)",
-      "Bash(python3 -m pytest tests/test_postprocess.py -q)"
+      "Bash(python3 -m pytest tests/test_postprocess.py -q)",
+      "Bash(python3 -m py_compile app/services/extraction.py app/services/postprocess.py app/services/voice_pipeline.py app/schemas/transaction.py app/api/v1/transactions.py app/api/v1/router.py)",
+      "Bash(systemctl --user start podman.socket)",
+      "Bash(podman ps *)",
+      "Bash(podman exec *)",
+      "Bash(podman compose *)"
     ]
   }
 }

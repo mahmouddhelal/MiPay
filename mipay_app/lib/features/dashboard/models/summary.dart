@@ -33,6 +33,15 @@ class Summary {
   final double balance;
   final List<CategorySummary> byCategory;
 
+  factory Summary.empty() => Summary(
+        month: '',
+        currency: 'EGP',
+        totalIncome: 0,
+        totalExpense: 0,
+        balance: 0,
+        byCategory: [],
+      );
+
   factory Summary.fromJson(Map<String, dynamic> json) => Summary(
         month: json['month'] as String,
         currency: json['currency'] as String,

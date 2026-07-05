@@ -5,7 +5,7 @@ import 'package:mipay_app/l10n/app_localizations.dart';
 
 import '../providers/auth_controller.dart';
 
-const _currencies = ['SAR', 'USD', 'EUR', 'EGP', 'AED', 'KWD', 'QAR'];
+const _currencies = ['EGP', 'USD', 'EUR', 'SAR', 'AED', 'KWD', 'QAR'];
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -20,7 +20,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _nameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   bool _obscure = true;
-  String _currency = 'SAR';
+  String _currency = 'EGP';
 
   @override
   void dispose() {
@@ -50,7 +50,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         final l10n = AppLocalizations.of(context)!;
         final msg = next.apiException?.localizedMessage(l10n) ?? l10n.errorUnknown;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), backgroundColor: Colors.red),
+          SnackBar(content: Text(msg)),
         );
       }
     });

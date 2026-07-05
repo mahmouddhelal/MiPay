@@ -70,7 +70,7 @@ class AuthRepository {
 // Uses a plain (unauthenticated) Dio instance — no circular dep with authController
 final _plainDioProvider = Provider<Dio>((ref) {
   return Dio(BaseOptions(
-    baseUrl: 'http://192.168.1.42:8000/api/v1',
+    baseUrl: kApiBaseUrl,
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 15),
   ));

@@ -1,0 +1,141 @@
+\chapter{Conclusion and Future Work}
+
+\setlength{\parindent}{1em}
+
+\section{Conclusion}
+
+This thesis set out to test a single hypothesis: that the dominant obstacle to
+consistent personal-finance tracking is data-entry friction, and that
+conversational bilingual speech, processed by a self-hosted, open-source AI
+pipeline, can remove most of that friction without sacrificing privacy or
+incurring per-request cost. MiPay realizes and substantiates that hypothesis as a
+complete, reproducible system.
+
+The work delivered, against the objectives set out in Chapter~1, the following.
+It designed and implemented an end-to-end pipeline that converts a bilingual
+voice or typed utterance into one or more structured, validated transaction
+records (O1, O5). It selected and justified an open ASR model (Whisper via
+\texttt{faster-whisper}) and an open instruction-tuned language model
+(Qwen2.5-7B-Instruct via Ollama) that run on commodity CPU-only hardware (O2). It
+guaranteed machine-parseable extraction through JSON-schema constrained decoding,
+eliminating format-level failure by construction (O3). It implemented a
+deterministic, unit-tested post-processing layer---numeral normalization,
+dialect-aware relative-date resolution, currency defaulting, and confidence-based
+review routing---that supplies the exactness the language model cannot (O4). And
+it built a fully localized Arabic/English mobile client with three input modes and
+a human-in-the-loop confirmation workflow, alongside a labeled bilingual
+evaluation corpus and a reproducible harness reporting Word Error Rate and
+per-field extraction accuracy with ablation studies (O5, O6).
+
+The central intellectual contribution is not any single component but their
+\emph{composition}: a robust multilingual speech model, a few-shot
+schema-constrained language model that needs no task-specific training data, and
+a deterministic exact-computation layer, joined by a stateless, human-confirmed
+save path. This architecture is what lets a self-hosted system that is smaller
+and cheaper than a commercial cloud service nonetheless be a usable product,
+because the human confirmation step converts the model's occasional errors into
+one-tap corrections rather than corrupted data. The self-hosted choice, finally,
+is what gives the project its academic substance---explicit model selection,
+measurable metrics, and principled ablations---rather than the thin-wrapper
+character of a cloud-API integration.
+
+\section{Limitations}
+
+The project is honest about what it does not yet do. The evaluation corpus,
+though spanning Arabic, English, and code-switched input, is authored by the team
+and may not match the distribution of real user speech; the audio subset used for
+end-to-end evaluation is smaller than the text corpus. Voice processing is
+synchronous and, on CPU-only hardware, takes several seconds per clip---adequate
+for interactive single-user use but not for high concurrency. The monthly summary
+sums amounts without currency conversion, reporting in the user's default
+currency. The extraction model, being prompted rather than fine-tuned, occasionally
+mislabels currency or category on rare phrasings, and dialect coverage in the
+date resolver, while broad, is not exhaustive. The system requires connectivity to
+the backend for voice processing; there is no offline mode. None of these
+limitations undermines the core contribution, but each defines a direction for
+future work.
+
+\section{Future Work}
+
+The future-work program follows directly from the project's design philosophy:
+keep the system self-hosted and privacy-preserving, and improve each stage with
+newer or task-specialized models as resources allow. The current
+implementation---Whisper \texttt{small} plus Qwen2.5-7B---was selected as the best
+quality/cost balance on the CPU-only reference machine; the upgrades below are the
+principled next steps, each stated with its rationale and its expected trade-off.
+
+\subsection{Algorithmic Enhancements}
+
+\paragraph{Upgraded speech model.} The most direct quality gain is to replace
+Whisper \texttt{small} with \texttt{faster-whisper large-v3} or its distilled
+\texttt{large-v3-turbo} variant. These substantially reduce Arabic and
+code-switched WER while, in the \texttt{turbo} case, retaining most of the speed
+advantage of CTranslate2 \texttt{int8} inference~\cite{fasterwhisper,ctranslate2}.
+The trade-off is memory and latency: \texttt{large-v3} is practical with a GPU
+(NFR-01's $\leq$\,4\,s budget) or on a higher-RAM CPU host. The pipeline already
+exposes the model size as a configuration variable, so this is a deployment
+change, not a code change.
+
+\paragraph{Upgraded extraction model.} The extractor can be moved to a newer or
+larger open-weight model---a Qwen3-class model or a 14B-parameter instruct model---to
+improve currency and category disambiguation and multi-transaction splitting on
+rare phrasings, while preserving the constrained-decoding guarantee that already
+makes output schema-valid. Because the extraction interface depends only on the
+Ollama \texttt{format} contract, swapping the model is again a configuration
+change. The trade-off is inference cost; 4-bit quantization~\cite{frantar2023gptq}
+keeps even a 14B model within the reference memory envelope at some latency cost.
+
+\paragraph{Task-specific fine-tuning.} The natural academic extension is to stop
+prompting and start learning. Every confirmed (user-corrected) transaction is a
+gold label pairing a transcript with its correct fields; accumulating these yields
+exactly the labeled, in-domain, bilingual corpus that the supervised approaches of
+Chapter~2 require but that does not exist today. A parameter-efficient LoRA
+fine-tune~\cite{hu2022lora} of a small model---or a fine-tuned multilingual NER
+head~\cite{antoun2020arabert,lample2016ner}---trained on this corpus could match or
+exceed the prompted 7B model at a fraction of the inference cost, closing the loop
+between product usage and model improvement.
+
+\subsection{System Improvements}
+
+\paragraph{Asynchronous processing.} For higher concurrency, the synchronous
+voice endpoint can be moved behind a job queue (FastAPI background tasks or
+Celery) with a polling or push-based result endpoint, decoupling request latency
+from inference time. The pipeline is already structured to make this a
+localized change.
+
+\paragraph{On-device inference.} A fully offline mode---\texttt{whisper.cpp} plus a
+1--3B quantized language model running on the handset---would remove the backend
+dependency entirely for privacy-maximalist users, at the cost of reduced accuracy
+and increased battery use.
+
+\paragraph{Streaming UX.} Partial transcripts streamed during recording, and
+progressive extraction results, would make the interaction feel instantaneous even
+when total processing takes several seconds.
+
+\subsection{Feature Expansion}
+
+Beyond the AI pipeline, the product roadmap includes budgets and savings goals,
+automatic recurring-transaction detection, receipt OCR and bank-SMS parsing as
+additional structured-extraction input modes (natural extensions of the same
+schema-constrained approach), multi-currency conversion in the dashboard, and data
+export. Each reuses the existing confirm-and-save core.
+
+\subsection{Evaluation Framework}
+
+The evaluation itself is a direction for growth: expanding the corpus with real,
+user-corrected utterances; reporting \emph{per-dialect} WER and
+F\textsubscript{1} (Gulf, Egyptian, Levantine) rather than a single Arabic figure;
+and adding a longitudinal study of how often users must edit extractions in real
+use---the truest measure of the friction reduction the project set out to achieve.
+
+\section{Concluding Remarks}
+
+MiPay demonstrates that the components needed for a private, low-cost, bilingual
+voice interface to a real application are now available as open, self-hostable
+building blocks, and that assembling them well---with constrained decoding for
+safety, a deterministic layer for exactness, and a human checkpoint for
+trust---produces a system that is both academically rigorous and practically
+usable. The models will improve, and the documented upgrade path makes adopting
+those improvements a matter of configuration rather than redesign; but the
+architecture---fuzzy understanding by the model, exact computation by code,
+final judgment by the user---is the durable contribution of this work.
