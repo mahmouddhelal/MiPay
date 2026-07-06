@@ -254,8 +254,8 @@ Chapter~4.
 The task of turning ``I paid fifty riyals for groceries at Carrefour yesterday''
 into a typed record is an \emph{information-extraction} problem. Historically this
 was approached with hand-written grammars or with supervised sequence-labeling
-models such as BiLSTM-CRF architectures~\cite{lample2016ner,li2022ner}, both of
-which require either brittle rules or large labeled corpora. Instruction-tuned
+models such as BiLSTM~\cite{hochreiter1997lstm}-CRF architectures~\cite{lample2016ner,li2022ner},
+both of which require either brittle rules or large labeled corpora. Instruction-tuned
 LLMs~\cite{wei2022flan,ouyang2022instructgpt} changed the economics: a single
 well-designed prompt with a handful of in-context
 examples~\cite{brown2020gpt3} can perform the extraction across languages and

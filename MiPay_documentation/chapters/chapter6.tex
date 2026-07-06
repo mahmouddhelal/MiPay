@@ -14,7 +14,7 @@ complete, reproducible system.
 The work delivered, against the objectives set out in Chapter~1, the following.
 It designed and implemented an end-to-end pipeline that converts a bilingual
 voice or typed utterance into one or more structured, validated transaction
-records (O1, O5). It selected and justified an open ASR model (Whisper via
+records (O1). It selected and justified an open ASR model (Whisper via
 \texttt{faster-whisper}) and an open instruction-tuned language model
 (Qwen2.5-7B-Instruct via Ollama) that run on commodity CPU-only hardware (O2). It
 guaranteed machine-parseable extraction through JSON-schema constrained decoding,
@@ -122,11 +122,18 @@ export. Each reuses the existing confirm-and-save core.
 
 \subsection{Evaluation Framework}
 
-The evaluation itself is a direction for growth: expanding the corpus with real,
-user-corrected utterances; reporting \emph{per-dialect} WER and
-F\textsubscript{1} (Gulf, Egyptian, Levantine) rather than a single Arabic figure;
-and adding a longitudinal study of how often users must edit extractions in real
-use---the truest measure of the friction reduction the project set out to achieve.
+The evaluation itself is a direction for growth. The most immediate item is
+re-running the full evaluation against the current twenty-nine-category,
+EGP-default schema (Section~4.5.1): the corpus and results reported in
+Chapter~5 were measured against the earlier seventeen-category configuration,
+and confirming that the two root causes identified there (Arabic
+compound-number parsing, prompt-coverage gaps) hold at the same or greater
+severity with twelve additional categories is the natural next data point.
+Beyond that: expanding the corpus with real, user-corrected utterances;
+reporting \emph{per-dialect} WER and F\textsubscript{1} (Gulf, Egyptian,
+Levantine) rather than a single Arabic figure; and adding a longitudinal study
+of how often users must edit extractions in real use---the truest measure of
+the friction reduction the project set out to achieve.
 
 \section{Concluding Remarks}
 

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
+import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/gradient_button.dart';
 import '../providers/auth_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -59,6 +61,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 32),
+                  Center(
+                    child: Container(
+                      width: 72,
+                      height: 72,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: AppColors.brandGradient,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.mic, color: Colors.white, size: 32),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   Text(
                     'MiPay',
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
@@ -107,13 +122,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         (v == null || v.isEmpty) ? 'Password is required.' : null,
                   ),
                   const SizedBox(height: 24),
-                  FilledButton(
+                  GradientButton(
                     onPressed: isLoading ? null : _submit,
                     child: isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Text('Login'),
                   ),

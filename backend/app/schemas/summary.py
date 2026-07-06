@@ -16,3 +16,4 @@ class SummaryOut(BaseModel):
     total_expense: Decimal
     balance: Decimal
     by_category: list[CategorySummary]
+    by_category_income: list[CategorySummary] = []

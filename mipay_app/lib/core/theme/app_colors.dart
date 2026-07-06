@@ -26,4 +26,44 @@ abstract final class AppColors {
   static const Color warningDark      = Color(0xFFF5C842);
   static const Color warningContainerLight = Color(0xFFFFF3CD);
   static const Color warningContainerDark  = Color(0xFF3D2E00);
+
+  // ── Brand gradient (hero surfaces: balance card, primary CTAs) ───────────
+  static const Color brandGradientStart = Color(0xFF2B2BE0);
+  static const Color brandGradientEnd   = Color(0xFF6D6BF5);
+  static const LinearGradient brandGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [brandGradientStart, brandGradientEnd],
+  );
+
+  // ── Category palette — vivid, distinct colors for per-category identity ──
+  // (separate from chartPalette, which is the neutral grayscale ramp used
+  // for generic ordered chart slices elsewhere).
+  static const List<Color> categoryPalette = [
+    Color(0xFFEF4444), // red
+    Color(0xFFF97316), // orange
+    Color(0xFFF59E0B), // amber
+    Color(0xFFEAB308), // yellow
+    Color(0xFF84CC16), // lime
+    Color(0xFF22C55E), // green
+    Color(0xFF10B981), // emerald
+    Color(0xFF14B8A6), // teal
+    Color(0xFF06B6D4), // cyan
+    Color(0xFF3B82F6), // blue
+    Color(0xFF6366F1), // indigo
+    Color(0xFF8B5CF6), // violet
+    Color(0xFFA855F7), // purple
+    Color(0xFFD946EF), // fuchsia
+    Color(0xFFEC4899), // pink
+    Color(0xFFF43F5E), // rose
+  ];
+
+  /// Deterministic hash of a category key → a stable color from
+  /// [categoryPalette], so the same category always renders in the same
+  /// color across the donut, breakdown list, transaction tiles, and filter
+  /// chips.
+  static Color categoryColor(String key) {
+    final hash = key.codeUnits.fold<int>(0, (h, c) => (h * 31 + c) & 0x7fffffff);
+    return categoryPalette[hash % categoryPalette.length];
+  }
 }

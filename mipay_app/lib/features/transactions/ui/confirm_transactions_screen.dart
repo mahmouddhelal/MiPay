@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
 import '../../../core/theme/app_semantic_colors.dart';
+import '../../../core/widgets/category_avatar.dart';
 import '../../dashboard/providers/summary_provider.dart';
+import '../models/category.dart';
 import '../../record/models/voice_extraction.dart';
 import '../data/transactions_repository.dart';
 import '../models/transaction.dart';
@@ -356,35 +358,62 @@ class _TransactionCard extends ConsumerWidget {
                             ? c.kind == 'expense'
                             : c.kind == 'income'))
                     .toList();
-                final valid =
-                    visible.any((c) => c.key == card.categoryKey)
-                        ? card.categoryKey
-                        : null;
-                return DropdownButtonFormField<String>(
-                  initialValue: valid,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: l10n.category,
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    for (final c in visible)
-                      DropdownMenuItem(
-                        value: c.key,
-                        child: Row(
-                          children: [
-                            Icon(c.iconData, size: 18),
-                            const SizedBox(width: 8),
-                            Text(c.labelFor(locale)),
-                          ],
-                        ),
+                final selected = visible
+                    .where((c) => c.key == card.categoryKey)
+                    .firstOrNull;
+                // A tap-to-open, scrollable bottom-sheet picker. Replaces the
+                // stock DropdownButton, whose overlay menu overflowed and did
+                // not scroll once the taxonomy grew past ~15 categories.
+                return InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () async {
+                    final picked = await showModalBottomSheet<String>(
+                      context: context,
+                      isScrollControlled: true,
+                      showDragHandle: true,
+                      builder: (sheetCtx) => _CategorySheet(
+                        categories: visible,
+                        selectedKey: card.categoryKey,
+                        locale: locale,
+                        title: l10n.category,
                       ),
-                  ],
-                  onChanged: (v) {
-                    card.categoryKey = v;
-                    onChanged();
+                    );
+                    if (picked != null) {
+                      card.categoryKey = picked;
+                      onChanged();
+                    }
                   },
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: l10n.category,
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    child: Row(
+                      children: [
+                        if (selected != null) ...[
+                          CategoryAvatar(
+                            categoryKey: selected.key,
+                            icon: selected.iconData,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(selected.labelFor(locale))),
+                        ] else
+                          Expanded(
+                            child: Text(
+                              l10n.category,
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        const Icon(Icons.arrow_drop_down),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
@@ -424,6 +453,68 @@ class _TransactionCard extends ConsumerWidget {
                 ),
                 child: Text(
                     MaterialLocalizations.of(context).formatMediumDate(card.date)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A scrollable bottom-sheet category picker. Handles any number of
+/// categories (the taxonomy grew to 29), which a stock dropdown menu could
+/// not display or scroll. Returns the chosen category key, or null on dismiss.
+class _CategorySheet extends StatelessWidget {
+  const _CategorySheet({
+    required this.categories,
+    required this.selectedKey,
+    required this.locale,
+    required this.title,
+  });
+
+  final List<Category> categories;
+  final String? selectedKey;
+  final Locale locale;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+              child: Text(title, style: theme.textTheme.titleMedium),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: categories.length,
+                itemBuilder: (context, i) {
+                  final c = categories[i];
+                  final selected = c.key == selectedKey;
+                  return ListTile(
+                    leading: CategoryAvatar(
+                      categoryKey: c.key,
+                      icon: c.iconData,
+                      size: 36,
+                    ),
+                    title: Text(c.labelFor(locale)),
+                    trailing: selected
+                        ? Icon(Icons.check, color: theme.colorScheme.primary)
+                        : null,
+                    selected: selected,
+                    onTap: () => Navigator.of(context).pop(c.key),
+                  );
+                },
               ),
             ),
           ],

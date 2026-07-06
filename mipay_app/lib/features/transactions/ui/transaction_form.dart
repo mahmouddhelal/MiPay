@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
+import '../../../core/widgets/category_avatar.dart';
 import '../data/transactions_repository.dart';
 import '../models/transaction.dart';
 import '../providers/transactions_provider.dart';
@@ -195,12 +196,22 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                     runSpacing: 8,
                     children: [
                       for (final c in visible)
-                        ChoiceChip(
-                          avatar: Icon(c.iconData, size: 18),
-                          label: Text(c.labelFor(locale)),
-                          selected: _categoryKey == c.key,
-                          onSelected: (_) => setState(() => _categoryKey = c.key),
-                        ),
+                        Builder(builder: (context) {
+                          final selected = _categoryKey == c.key;
+                          final colorScheme = Theme.of(context).colorScheme;
+                          final textColor = selected
+                              ? colorScheme.onPrimary
+                              : colorScheme.onSurfaceVariant;
+                          return ChoiceChip(
+                            avatar: CategoryAvatar(categoryKey: c.key, icon: c.iconData, size: 18),
+                            label: Text(
+                              c.labelFor(locale),
+                              style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
+                            ),
+                            selected: selected,
+                            onSelected: (_) => setState(() => _categoryKey = c.key),
+                          );
+                        }),
                     ],
                   );
                 },

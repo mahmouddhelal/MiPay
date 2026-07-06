@@ -4,6 +4,7 @@ import 'package:mipay_app/l10n/app_localizations.dart';
 
 import '../../../core/theme/app_semantic_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/category_avatar.dart';
 import '../models/transaction.dart';
 import '../providers/transactions_provider.dart';
 
@@ -17,7 +18,6 @@ class TransactionTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = Localizations.localeOf(context);
     final l10n = AppLocalizations.of(context)!;
-    final colorScheme = Theme.of(context).colorScheme;
     final isExpense = transaction.isExpense;
 
     final categoryAsync = ref.watch(categoriesProvider);
@@ -32,10 +32,10 @@ class TransactionTile extends ConsumerWidget {
 
     return ListTile(
       onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: colorScheme.secondaryContainer,
-        child: Icon(category?.iconData ?? Icons.more_horiz,
-            color: colorScheme.onSecondaryContainer),
+      leading: CategoryAvatar(
+        categoryKey: transaction.category,
+        icon: category?.iconData ?? Icons.more_horiz,
+        size: 40,
       ),
       title: Text(
         transaction.name ?? category?.labelFor(locale) ?? transaction.category,

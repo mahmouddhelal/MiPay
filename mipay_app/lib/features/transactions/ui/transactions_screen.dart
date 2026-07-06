@@ -2,13 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/widgets/category_avatar.dart';
+import '../../../core/widgets/segmented_pills.dart';
 import '../../../features/dashboard/providers/summary_provider.dart';
 import '../data/transactions_repository.dart';
 import '../models/transaction.dart';
 import '../providers/transactions_provider.dart';
 import 'transaction_form.dart';
 import 'transaction_tile.dart';
+
+/// Transactions optimistically hidden mid-delete: [_DismissibleTile] adds an
+/// id here *synchronously* on swipe-dismiss, before the async delete call, so
+/// the item is already gone from the rendered list on the very next frame.
+/// Without this, Dismissible briefly asserts "A dismissed Dismissible widget
+/// is still part of the tree" (visible as a red error flash) because the
+/// underlying list still contained the item during the network round-trip.
+final _pendingDeleteIdsProvider = StateProvider<Set<String>>((ref) => {});
 
 class TransactionsScreen extends ConsumerWidget {
   const TransactionsScreen({super.key});
@@ -18,15 +29,31 @@ class TransactionsScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final filter = ref.watch(transactionFilterProvider);
     final txAsync = ref.watch(transactionsProvider(filter));
+    final pendingDeletes = ref.watch(_pendingDeleteIdsProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.transactions)),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const TransactionFormScreen()),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: AppColors.brandGradient,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.brandGradientEnd.withValues(alpha: 0.4),
+              blurRadius: 12,
+              spreadRadius: 1,
+            ),
+          ],
         ),
-        tooltip: l10n.addTransaction,
-        child: const Icon(Icons.add),
+        child: FloatingActionButton(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const TransactionFormScreen()),
+          ),
+          tooltip: l10n.addTransaction,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
       body: Column(
         children: [
@@ -36,7 +63,10 @@ class TransactionsScreen extends ConsumerWidget {
             child: txAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => const SizedBox.shrink(),
-              data: (txs) {
+              data: (allTxs) {
+                final txs = pendingDeletes.isEmpty
+                    ? allTxs
+                    : allTxs.where((t) => !pendingDeletes.contains(t.id)).toList();
                 if (txs.isEmpty) {
                   return Center(
                     child: Column(
@@ -113,34 +143,45 @@ class _FilterBar extends ConsumerWidget {
         children: [
           Row(
             children: [
-              // Month stepper
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () => _shiftMonth(ref, monthDate, -1),
-              ),
+              // Month stepper (pill)
               Expanded(
-                child: Text(
-                  formatMonth(monthDate, locale.toString()),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left, size: 20),
+                        onPressed: () => _shiftMonth(ref, monthDate, -1),
+                      ),
+                      Text(
+                        formatMonth(monthDate, locale.toString()),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right, size: 20),
+                        onPressed: () => _shiftMonth(ref, monthDate, 1),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () => _shiftMonth(ref, monthDate, 1),
               ),
               const SizedBox(width: 8),
               // Type toggle
-              SegmentedButton<String>(
-                showSelectedIcon: false,
-                style: const ButtonStyle(visualDensity: VisualDensity.compact),
+              SegmentedPills<String>(
                 emptySelectionAllowed: true,
                 segments: [
-                  ButtonSegment(value: 'expense', label: Text(l10n.expense)),
-                  ButtonSegment(value: 'income', label: Text(l10n.income)),
+                  PillSegment(value: 'expense', label: l10n.expense),
+                  PillSegment(value: 'income', label: l10n.income),
                 ],
                 selected: {if (filter.type != null) filter.type!},
-                onSelectionChanged: (s) {
+                onChanged: (s) {
                   ref.read(transactionFilterProvider.notifier).state =
                       filter.copyWith(type: () => s.isEmpty ? null : s.first);
                 },
@@ -155,8 +196,8 @@ class _FilterBar extends ConsumerWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: FilterChip(
-                    label: Text(l10n.allCategories),
+                  child: _CategoryChip(
+                    label: l10n.allCategories,
                     selected: filter.category == null,
                     onSelected: (_) {
                       ref.read(transactionFilterProvider.notifier).state =
@@ -167,9 +208,9 @@ class _FilterBar extends ConsumerWidget {
                 for (final c in categories)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilterChip(
-                      avatar: Icon(c.iconData, size: 16),
-                      label: Text(c.labelFor(locale)),
+                    child: _CategoryChip(
+                      avatar: CategoryAvatar(categoryKey: c.key, icon: c.iconData, size: 20),
+                      label: c.labelFor(locale),
                       selected: filter.category == c.key,
                       onSelected: (sel) {
                         ref.read(transactionFilterProvider.notifier).state =
@@ -194,6 +235,38 @@ class _FilterBar extends ConsumerWidget {
   }
 }
 
+/// A [FilterChip] with an explicit, theme-correct label color for both the
+/// selected and unselected state. The default chip label color is ambiguous
+/// against this app's inverted `primary` (near-black in light mode, near-
+/// white in dark mode) and was rendering near-invisible in both themes.
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    this.avatar,
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Widget? avatar;
+  final String label;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textColor = selected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant;
+
+    return FilterChip(
+      avatar: avatar,
+      label: Text(label, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+      selected: selected,
+      onSelected: onSelected,
+      checkmarkColor: colorScheme.onPrimary,
+    );
+  }
+}
+
 // ── Day header ──────────────────────────────────────────────────────────────
 
 class _DayHeader extends StatelessWidget {
@@ -206,9 +279,11 @@ class _DayHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 4),
       child: Text(
-        formatDate(day, locale.toString()),
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
+        formatDate(day, locale.toString()).toUpperCase(),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
             ),
       ),
     );
@@ -252,11 +327,35 @@ class _DismissibleTile extends ConsumerWidget {
         ),
       ),
       onDismissed: (_) async {
+        // Hide the item immediately (before the async delete below) so
+        // Dismissible never finds it still present in the underlying list.
+        ref.read(_pendingDeleteIdsProvider.notifier).update(
+              (s) => {...s, transaction.id},
+            );
         try {
           await ref.read(transactionsRepositoryProvider).delete(transaction.id);
+        } catch (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(l10n.errorNetwork)),
+            );
+          }
         } finally {
           ref.invalidate(transactionsProvider);
           ref.invalidate(summaryProvider);
+          // Wait for the refetch so the pending-hide is only lifted once the
+          // real list (with or without the item, success or failure) has
+          // actually loaded — otherwise briefly re-showing stale data would
+          // flicker the item back in before the fresh fetch completes.
+          try {
+            final filter = ref.read(transactionFilterProvider);
+            await ref.read(transactionsProvider(filter).future);
+          } catch (_) {
+            // ignore — pending id is cleared below regardless
+          }
+          ref.read(_pendingDeleteIdsProvider.notifier).update(
+                (s) => {...s}..remove(transaction.id),
+              );
         }
       },
       child: TransactionTile(

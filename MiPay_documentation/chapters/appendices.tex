@@ -68,9 +68,10 @@ The hero screen is the record screen, whose large microphone button drives the
 recording state machine and surfaces staged progress text. The confirmation
 screen renders one editable card per extracted record and commits them through the
 atomic batch endpoint. The transactions screen groups records by day with month,
-category, and type filters; the dashboard screen presents three stat cards and the
-category donut chart; and the settings screen switches language (including
-right-to-left layout) instantly.
+category, and type filters; the dashboard screen presents a gradient balance
+hero card (net balance with income/expense sub-values and quick-action
+buttons) above a Spending/Income toggle and the category donut chart; and the
+settings screen switches language (including right-to-left layout) instantly.
 
 \section{Backend Architecture}
 
@@ -211,9 +212,9 @@ The figures below catalogue the application screens. Each is sourced as a
     \includegraphics[width=0.32\textwidth]{figures/ui_dashboard.jpg}\hfill
     \includegraphics[width=0.32\textwidth]{figures/ui_settings_ar.jpg}
     \caption[Transactions, dashboard, and settings screens]{Left to right: the
-    transactions list grouped by day with filters; the dashboard with stat cards
-    and the category donut chart; the settings screen shown in Arabic
-    (right-to-left) to demonstrate localization.}
+    transactions list grouped by day with filters; the dashboard with its
+    gradient balance hero card and the category donut chart; the settings
+    screen shown in Arabic (right-to-left) to demonstrate localization.}
     \label{fig:ui-2}
 \end{figure}
 

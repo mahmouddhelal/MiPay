@@ -102,7 +102,10 @@ Per-transaction field rules:
   راتب/معاش/salary/paycheck/مرتب → salary;
   حوالة واردة/someone sent me money → transfer_in. If nothing fits, use "other".
 - "name": the merchant, store, person, or a 2-4 word description of what the money
-  was for, in the language it was spoken. null if not mentioned.
+  was for. Use the EXACT language and words the user actually spoke — if the
+  transcript is in English, "name" must be in English; NEVER translate it into
+  Arabic (or any other language) even if the category value or these
+  instructions use Arabic elsewhere. null if not mentioned.
 - "date_text": copy the EXACT date/time phrase from the transcript ("أمس", "امبارح",
   "yesterday", "يوم الجمعة", "last week", "3 مارس"). Do NOT resolve it to a date.
   null if no date phrase is present.
@@ -121,6 +124,13 @@ FEW_SHOT_EXAMPLES: list[tuple[str, str]] = [
     (
         "قبضت المرتب النهارده ١٨ ألف",
         '{"transactions":[{"transaction_type":"income","amount":18000,"currency":"EGP","category":"salary","name":"المرتب","date_text":"النهارده","confidence":"high"}]}',
+    ),
+    # English salary — no employer named, so "name" is null (not a translated
+    # copy of the Arabic example above). Without this, salary/income requests
+    # in English were leaking the Arabic "name" value from the example above.
+    (
+        "I got my salary today, 3500 dollars",
+        '{"transactions":[{"transaction_type":"income","amount":3500,"currency":"USD","category":"salary","name":null,"date_text":"today","confidence":"high"}]}',
     ),
     # New category: internet_mobile
     (

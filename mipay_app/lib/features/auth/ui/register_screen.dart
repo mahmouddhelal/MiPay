@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mipay_app/l10n/app_localizations.dart';
 
+import '../../../core/widgets/gradient_button.dart';
 import '../providers/auth_controller.dart';
 
 const _currencies = ['EGP', 'USD', 'EUR', 'SAR', 'AED', 'KWD', 'QAR'];
@@ -129,13 +130,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   onChanged: (v) => setState(() => _currency = v!),
                 ),
                 const SizedBox(height: 24),
-                FilledButton(
+                GradientButton(
                   onPressed: isLoading ? null : _submit,
                   child: isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Text('Create Account'),
                 ),

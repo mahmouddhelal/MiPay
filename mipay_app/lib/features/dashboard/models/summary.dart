@@ -24,6 +24,7 @@ class Summary {
     required this.totalExpense,
     required this.balance,
     required this.byCategory,
+    required this.byCategoryIncome,
   });
 
   final String month;
@@ -32,6 +33,7 @@ class Summary {
   final double totalExpense;
   final double balance;
   final List<CategorySummary> byCategory;
+  final List<CategorySummary> byCategoryIncome;
 
   factory Summary.empty() => Summary(
         month: '',
@@ -40,6 +42,7 @@ class Summary {
         totalExpense: 0,
         balance: 0,
         byCategory: [],
+        byCategoryIncome: [],
       );
 
   factory Summary.fromJson(Map<String, dynamic> json) => Summary(
@@ -49,6 +52,9 @@ class Summary {
         totalExpense: double.parse(json['total_expense'].toString()),
         balance: double.parse(json['balance'].toString()),
         byCategory: (json['by_category'] as List)
+            .map((e) => CategorySummary.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        byCategoryIncome: (json['by_category_income'] as List? ?? [])
             .map((e) => CategorySummary.fromJson(e as Map<String, dynamic>))
             .toList(),
       );

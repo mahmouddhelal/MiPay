@@ -10,6 +10,7 @@ import '../../features/record/ui/home_screen.dart';
 import '../../features/transactions/ui/transactions_screen.dart';
 import '../../features/dashboard/ui/dashboard_screen.dart';
 import '../../features/settings/ui/settings_screen.dart';
+import '../widgets/app_bottom_nav.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
@@ -94,9 +95,9 @@ class _MainShell extends StatelessWidget {
 
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: index,
-        onDestinationSelected: (i) {
+      bottomNavigationBar: AppBottomNav(
+        currentIndex: index,
+        onTap: (i) {
           switch (i) {
             case 0:
               context.go('/home');
@@ -109,24 +110,24 @@ class _MainShell extends StatelessWidget {
           }
         },
         destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.mic_none),
-            selectedIcon: const Icon(Icons.mic),
+          AppNavDestination(
+            icon: Icons.mic_none,
+            activeIcon: Icons.mic,
             label: l10n.home,
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.list_alt_outlined),
-            selectedIcon: const Icon(Icons.list_alt),
+          AppNavDestination(
+            icon: Icons.list_alt_outlined,
+            activeIcon: Icons.list_alt,
             label: l10n.transactions,
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.bar_chart_outlined),
-            selectedIcon: const Icon(Icons.bar_chart),
+          AppNavDestination(
+            icon: Icons.bar_chart_outlined,
+            activeIcon: Icons.bar_chart,
             label: l10n.dashboard,
           ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: const Icon(Icons.settings),
+          AppNavDestination(
+            icon: Icons.settings_outlined,
+            activeIcon: Icons.settings,
             label: l10n.settings,
           ),
         ],

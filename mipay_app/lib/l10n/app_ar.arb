@@ -14,6 +14,9 @@
   "dashboard": "لوحة التحكم",
   "settings": "الإعدادات",
 
+  "addAction": "إضافة",
+  "recordAction": "تسجيل",
+
   "save": "احفظ",
   "discard": "تجاهل",
   "cancel": "إلغاء",

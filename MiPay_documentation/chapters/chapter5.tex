@@ -5,8 +5,9 @@
 \begin{quote}
 \small\itshape
 Note on what is measured versus pending. Every table in this chapter reports
-real measurements from the deployed system (Whisper \texttt{small} + Qwen2.5-7B-Instruct,
-CPU-only reference machine, \texttt{temperature}\,$=0$), obtained by running
+real measurements from the deployed system: Whisper \texttt{small} paired with
+Qwen2.5-7B-Instruct, run on a CPU-only reference machine with
+\texttt{temperature}\,$=0$. These figures were obtained by running
 \texttt{backend/evaluation/run\_stt\_eval.py} and \texttt{run\_extraction\_eval.py}
 against the full 274-row corpus and a 6-clip recorded-audio pilot. The three
 \textbf{ablation} tables (Whisper size, LLM size, few-shot vs.\ zero-shot) remain
@@ -55,15 +56,22 @@ temperature-0 decoding.
 chapter were measured against the seventeen-category, Saudi-Arabia-first
 (SAR-default) configuration of the extraction schema described earlier in
 this thesis. The system has since been extended for the Egyptian market
-(Section~4.2.1): the category taxonomy grew from seventeen to twenty-nine
+(Section~4.5.1): the category taxonomy grew from seventeen to twenty-nine
 keys and the default currency changed from SAR to EGP. The evaluation
 corpus itself is already Egyptian-dialect-heavy and EGP-denominated (Table~4.1),
 so the measured accuracy figures and the two root causes identified in
-Section~5.6 remain representative of the system's behavior; only the
-category-taxonomy size referenced in Section~5.6.2 reflects the
+Section~5.7 remain representative of the system's behavior; only the
+category-taxonomy size referenced in Section~5.7.3 reflects the
 seventeen-key schema in place at evaluation time. Re-running the full
 evaluation against the twenty-nine-key schema is listed in Chapter~6 as an
-immediate next step, alongside the ablation studies.
+immediate next step, alongside the ablation studies. The corpus has also grown
+since this evaluation was run: eight further Arabic utterances exercising the
+new Egyptian categories directly (\texttt{internet\_mobile}, \texttt{salary},
+\texttt{coffee}, \texttt{subscriptions}, \texttt{savings}, \texttt{clothes},
+\texttt{transfer\_out}, \texttt{freelance}) were added afterward and are
+included in the corpus figures of Table~4.1 (282 rows) but are \emph{not} part
+of the 274-utterance, 294-transaction sample the numbers in this chapter
+describe; they are folded into the same future re-evaluation pass.
 
 \section{Metrics}
 
@@ -137,7 +145,7 @@ Arabic recorded under informal (non-studio) conditions, and Whisper's transcript
 of them were badly garbled (in one case the language was even mis-detected as
 Japanese). This is consistent with the known difficulty dialectal, informally
 recorded Arabic poses for general-purpose ASR (Section~2.1) and is discussed
-further in Section~5.6.
+further in Section~5.7.
 
 \section{Extraction Results}
 
@@ -173,7 +181,7 @@ Transaction-count acc.            & 100.0\% & 100.0\% & --- \\
 meet or substantially exceed their targets. \texttt{amount} and
 \texttt{category} fall well short of theirs in the gold condition---65.6\%
 against a 90\% target for amount, and an F\textsubscript{1} of 0.554 against an
-0.80 target for category. Section~5.6 shows these are not diffuse, unexplained
+0.80 target for category. Section~5.7 shows these are not diffuse, unexplained
 weaknesses: both trace to specific, identifiable causes with a clear fix.
 
 \subsection{Per-Language Breakdown}
@@ -203,7 +211,7 @@ Amount accuracy is essentially perfect in English (99.2\%) and collapses in
 Arabic (37.3\%), with code-switched utterances in between (53.6\%, consistent
 with many of them expressing the amount in Arabic words even when other parts
 of the sentence are English). Type, currency, and date show no comparable
-language gap. Section~5.6 traces this precisely to how Qwen2.5-7B-Instruct
+language gap. Section~5.7.2 traces this precisely to how Qwen2.5-7B-Instruct
 parses Arabic \emph{spelled-out compound numbers}.
 
 \subsection{End-to-End Audio Pilot (Condition (b))}
@@ -215,13 +223,13 @@ utterance is worth roughly 14 percentage points, so no strong claim should be
 drawn from the absolute numbers---but two of the errors are individually
 interesting. One clip's speaker said ``\emph{30 pounds}'' for the price of a
 pair of earbuds; British pounds (GBP) are not among MiPay's nineteen supported
-currencies (Table~4.3, chosen to cover the Arab region plus major reserve
+currencies (Table~4.4, chosen to cover the Arab region plus major reserve
 currencies), so no correct prediction was possible by construction---the gold
 label is \texttt{null} and is scored as a currency miss regardless of what the
 model outputs. This is a real, useful finding about the currency enum's
-coverage, not a model failure (Section~5.6). The other systematic pattern in
+coverage, not a model failure (Section~5.7.5). The other systematic pattern in
 this pilot is the same category-defaulting behavior seen at full scale
-(Section~5.6.2): both purchases in the multi-transaction clip (an iPhone and a
+(Section~5.7.3): both purchases in the multi-transaction clip (an iPhone and a
 pair of earbuds) were labeled \texttt{shopping} in the gold set but
 \texttt{other} by the model.
 
@@ -260,7 +268,7 @@ stage (larger output, more tokens to decode under the schema constraint) as
 well as at the transcription stage. This is consistent with the specification's
 own risk assessment (Section~11 of the spec) and is the direct, measured
 argument for the GPU-acceleration and smaller-model fallback paths documented
-in Section~9.3, and for the faster-whisper upgrade path in Chapter~6.
+in Section~9.3 of the spec, and for the faster-whisper upgrade path in Chapter~6.
 
 \section{Ablation Studies (Planned, Not Yet Run)}
 
@@ -330,7 +338,7 @@ Few-shot (8 examples)   & 65.6 & 0.554 & 100.0 \\
 
 Table~\ref{tab:qualitative} shows representative utterances and the pipeline's
 \emph{actual} predictions from the evaluation run (not idealized examples),
-illustrating the two systematic error modes analyzed in Section~5.6 alongside
+illustrating the two systematic error modes analyzed in Section~5.7 alongside
 cases that work correctly.
 
 \begin{table}[H]
@@ -382,13 +390,13 @@ wa-khamsin}'' (200 + 50 = 250)---dropping the hundreds component entirely
 the singular ``\emph{miya}'' (100), yielding 250~$\rightarrow$~150. Simple
 amounts (a single number word, or Western/Arabic-Indic digits) are unaffected;
 English and digit-based amounts in any language score near-perfectly. This
-error also explains part of the low \texttt{name} score (Section~5.6.3): when
+error also explains part of the low \texttt{name} score (Section~5.7.2): when
 the compound number is mis-parsed, the unrecognized fragment sometimes remains
 attached to the \texttt{name} field instead of being cleanly separated (e.g.\
 gold \emph{name}=``Awlad Ragab'' vs.\ predicted ``Awlad Ragab
 bitalatmiya-wa-tamanya''). This is precisely the class of error the project's
-own risk register anticipated (Section~1.7, ``Qwen mislabels
-category/currency/amount on rare phrasings''), and it is the strongest
+own risk register anticipated (Section~11 of the specification, ``Qwen
+mislabels category/currency/amount on rare phrasings''), and it is the strongest
 data-backed argument in this thesis for the Chapter~6 upgrade path: either a
 larger/newer LLM, or---more directly---extending the deterministic
 \texttt{postprocess.py} numeral-normalization layer (already handling
@@ -405,7 +413,7 @@ they concentrate overwhelmingly on \texttt{shopping} (19 misclassifications),
 \texttt{business} (12), \texttt{gifts\_donations} (10), \texttt{education} (9),
 \texttt{entertainment} (9), and \texttt{personal\_care} (8), in every case
 predicted as \texttt{other}. Cross-referencing the system prompt
-(Appendix~A.3), this is exactly the set of categories for which the prompt
+(Appendix~A.4), this is exactly the set of categories for which the prompt
 gives \emph{no} worked keyword examples: the prompt enumerates explicit mapping
 examples for \texttt{groceries}, \texttt{restaurants}, \texttt{fuel},
 \texttt{transport}, \texttt{bills}, \texttt{rent}, \texttt{health},
@@ -424,7 +432,7 @@ judged no name-worthy detail was present) but the model extracted \emph{some}
 value anyway (e.g.\ gold=\texttt{null}, predicted=``McDonald's''); only 30
 (14\%) are cases where both gold and prediction contain a value but disagree,
 and several of those are themselves downstream contamination from the
-compound-number failure (Section~5.6.2) rather than independent naming errors.
+compound-number failure (Section~5.7.2) rather than independent naming errors.
 Read this way, the raw 28.2\%/67.5\% (accuracy/F\textsubscript{1}) numbers
 understate how often the model's \texttt{name} output would actually satisfy a
 user reviewing the confirmation screen; the strict exact-match metric simply
@@ -438,7 +446,7 @@ reproducible measurement.
 The 6-clip pilot's lowest-scoring field, currency (71.4\%), includes one
 genuinely unanswerable item: a speaker said ``pounds'' meaning British pounds,
 which is not among MiPay's nineteen supported currencies (the schema targets
-the Arab region plus major reserve currencies; Table~4.3). No prediction could
+the Arab region plus major reserve currencies; Table~4.4). No prediction could
 have been marked correct for this item under the current schema. This is
 useful, bounded evidence---not of model failure, but of a currency-coverage
 decision worth revisiting if the target user base is expected to reference
@@ -447,7 +455,7 @@ non-regional currencies.
 \subsection{The Role of Human Confirmation}
 
 Every extraction error identified above is caught at the confirmation step
-before it reaches the database (Section~3.2, two-step save). The measured
+before it reaches the database (Section~3.9, two-step save). The measured
 accuracies are therefore a proxy for \emph{how often the user must edit a
 field}, not a measure of data integrity: a mis-parsed Arabic amount becomes a
 one-tap correction, never a silently corrupted record. Given that the
@@ -470,5 +478,5 @@ the same underlying sentence (recorded because the first attempts were of poor
 quality), which is disclosed rather than hidden, but means the pilot's
 effective linguistic diversity is five utterances, not six. Scaling the audio
 pilot to the originally targeted size, and re-running it after the two fixes
-identified in Sections 5.6.1--5.6.2, are the highest-priority items in the
+identified in Sections~5.7.2--5.7.3, are the highest-priority items in the
 Chapter~6 future-work list.

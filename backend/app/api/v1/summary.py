@@ -63,19 +63,24 @@ async def get_summary(
     total_income: Decimal = row.total_income
     total_expense: Decimal = row.total_expense
 
-    cat_rows = await db.execute(
-        select(
-            Transaction.category,
-            func.sum(Transaction.amount).label("total"),
-            func.count(Transaction.id).label("count"),
+    async def _category_breakdown(transaction_type: str) -> list[CategorySummary]:
+        rows = await db.execute(
+            select(
+                Transaction.category,
+                func.sum(Transaction.amount).label("total"),
+                func.count(Transaction.id).label("count"),
+            )
+            .where(*base_filter, Transaction.transaction_type == transaction_type)
+            .group_by(Transaction.category)
+            .order_by(func.sum(Transaction.amount).desc())
         )
-        .where(
-            *base_filter,
-            Transaction.transaction_type == "expense",
-        )
-        .group_by(Transaction.category)
-        .order_by(func.sum(Transaction.amount).desc())
-    )
+        return [
+            CategorySummary(category=r.category, total=r.total, count=r.count)
+            for r in rows.all()
+        ]
+
+    by_category_expense = await _category_breakdown("expense")
+    by_category_income = await _category_breakdown("income")
 
     return SummaryOut(
         month=month,
@@ -83,8 +88,6 @@ async def get_summary(
         total_income=total_income,
         total_expense=total_expense,
         balance=total_income - total_expense,
-        by_category=[
-            CategorySummary(category=r.category, total=r.total, count=r.count)
-            for r in cat_rows.all()
-        ],
+        by_category=by_category_expense,
+        by_category_income=by_category_income,
     )

@@ -38,7 +38,7 @@ English (\texttt{en}) & 110 & Natural English spending/income sentences with var
 Code-switched (\texttt{mixed}) & 53 & Sentences mixing Arabic and English within a single utterance. \\
 \midrule
 Multi-transaction & 19 & Utterances describing two or more transactions (subset of the rows above). \\
-With recorded audio & 6 & Real spoken clips supporting the end-to-end evaluation pilot (Section~5.3.3). \\
+With recorded audio & 6 & Real spoken clips supporting the end-to-end evaluation pilot (Section~5.4.3). \\
 \midrule
 \textbf{Total} & \textbf{282} & \textbf{302 gold transactions} \\
 \bottomrule
@@ -59,7 +59,7 @@ clips (four Arabic, two English) and gold-labeled from the actual recorded
 audio; the remaining 276 rows are text-only and support the extraction-stage
 evaluation that isolates the language model from transcription noise. The audio
 subset is intentionally a small \emph{pilot}, not a statistically powered
-benchmark (Section~5.3.3 reports it as such); scaling it to the 50--100 clips
+benchmark (Section~5.4.3 reports it as such); scaling it to the 50--100 clips
 originally targeted is listed as future work (Chapter~6).
 
 \subsection{Dataset Construction}
@@ -620,14 +620,19 @@ derived from the authentication state. When the authenticated user changes
 rebuilds all dependent providers, making it structurally impossible for user
 A's cached data to remain in memory when user B signs in.
 
-\textbf{Monochrome design system.} The app uses a hand-built
-\texttt{ColorScheme}---ink-black (\texttt{\#0B0B0D}) on white in light mode,
-near-white on \texttt{\#0B0B0D} in dark mode---with no seed color. Green and red
-appear only on income/expense amounts via a \texttt{ThemeExtension}
-(\texttt{AppSemanticColors}); chart segments use an eight-step grayscale
-palette where lightness, not hue, distinguishes categories. A three-way
-appearance toggle (system / light / dark) is stored in \texttt{SharedPreferences}
-and loaded before \texttt{runApp} to eliminate any theme flash on launch.
+\textbf{Design system.} The foundation is a hand-built \texttt{ColorScheme}---
+ink-black (\texttt{\#0B0B0D}) on white in light mode, near-white on
+\texttt{\#0B0B0D} in dark mode---with no Material seed color, plus a
+\texttt{ThemeExtension} (\texttt{AppSemanticColors}) that confines green/red to
+income/expense amounts. On top of this neutral base, a brand gradient
+(indigo\,$\rightarrow$\,violet) drives the dashboard's balance hero card and
+primary call-to-action buttons, and a deterministic hash from category key to
+a fixed sixteen-color palette (\texttt{categoryColor()}) gives every category
+a stable, hue-distinct color reused consistently across the donut chart, the
+category breakdown list, transaction tiles, and filter chips---replacing an
+earlier grayscale-only chart palette. A three-way appearance toggle (system /
+light / dark) is stored in \texttt{SharedPreferences} and loaded before
+\texttt{runApp} to eliminate any theme flash on launch.
 
 The user-interface gallery is presented in Appendix~A.
 
