@@ -4,16 +4,18 @@
 
 \begin{quote}
 \small\itshape
-Note on what is measured versus pending. Every table in this chapter reports
+Note on what is measured versus planned. Every table in this chapter reports
 real measurements from the deployed system: Whisper \texttt{small} paired with
 Qwen2.5-7B-Instruct, run on a CPU-only reference machine with
 \texttt{temperature}\,$=0$. These figures were obtained by running
 \texttt{backend/evaluation/run\_stt\_eval.py} and \texttt{run\_extraction\_eval.py}
 against the full 274-row corpus and a 6-clip recorded-audio pilot. The three
-\textbf{ablation} tables (Whisper size, LLM size, few-shot vs.\ zero-shot) remain
-labelled placeholders (\result{XX.X}): each requires restarting the containers
-with a different model and re-running the full corpus, which was out of scope
-for this pass and is left as an immediate next step, not a methodological gap.
+\textbf{ablation studies} (Whisper size, LLM size, few-shot vs.\ zero-shot,
+Section~5.5) compare against alternative configurations that were not run in
+this pass---each needs a container restart with a different model and a
+30-minute re-run of the full corpus---so that section states the exact
+comparison design and the one data point already measured (the deployed
+configuration) for each, rather than presenting incomplete tables.
 \end{quote}
 
 \section{Baseline / Evaluation Setup}
@@ -270,69 +272,61 @@ own risk assessment (Section~11 of the spec) and is the direct, measured
 argument for the GPU-acceleration and smaller-model fallback paths documented
 in Section~9.3 of the spec, and for the faster-whisper upgrade path in Chapter~6.
 
-\section{Ablation Studies (Planned, Not Yet Run)}
+\section{Ablation Studies (Design and Reference Point)}
 
-The ablation studies below quantify the contribution of each design choice.
-Each requires restarting the containers with a different model configuration
-and re-running the full 274-utterance corpus (roughly 30 CPU-minutes per
-configuration); they were not executed in this pass and are reported as
-labelled placeholders so the thesis structure and methodology are complete and
-ready to receive the numbers.
+The three ablations below isolate the contribution of each major configuration
+choice. Each requires restarting the containers with a different model and
+re-running the full 274-utterance corpus (roughly 30 CPU-minutes per
+configuration beyond what was already run for the reference configuration);
+running all three was outside the time available for this evaluation pass.
+Rather than present tables with blank cells, this section states the exact
+comparison each ablation is designed to make, together with the one data
+point already measured in each case (the configuration actually deployed and
+reported throughout this chapter), so that running the remaining
+configurations is a direct drop-in once time allows.
 
 \subsection{Ablation 1 --- Whisper Model Size}
 
-\begin{table}[H]
-\centering
-\caption{Ablation 1 (planned): Whisper model size versus WER and latency.}
-\label{tab:abl-whisper}
-\small
-\renewcommand{\arraystretch}{1.3}
-\begin{tabularx}{\textwidth}{X c c c c}
-\toprule
-\textbf{Model} & \textbf{WER ar (\%)} & \textbf{WER en (\%)} & \textbf{WER mixed (\%)} & \textbf{Latency (ms)} \\
-\midrule
-\texttt{base}   & \result{XX.X} & \result{XX.X} & \result{XX.X} & \result{XXXX} \\
-\texttt{small}  & 76.0 (pilot, $n$=4) & 17.4 (pilot, $n$=2) & \result{XX.X} & 3{,}890 \\
-\texttt{medium} & \result{XX.X} & \result{XX.X} & \result{XX.X} & \result{XXXX} \\
-\bottomrule
-\end{tabularx}
-\end{table}
+This ablation compares Whisper \texttt{base}, \texttt{small}, and
+\texttt{medium} on Arabic, English, and code-switched WER, and on
+transcription latency, holding the extraction model fixed. The deployed
+configuration, \texttt{small}, is the one measured throughout this chapter:
+76.0\% WER on the Arabic pilot ($n=4$), 17.4\% on the English pilot ($n=2$),
+and a median transcription latency of 3{,}890\,ms (Table~\ref{tab:latency}).
+The expected direction, consistent with Whisper's published scaling
+behavior~\cite{radford2023whisper}, is monotonically lower WER moving from
+\texttt{base} to \texttt{medium} at the cost of higher latency; \texttt{base}
+is the CPU-latency floor and \texttt{medium} the accuracy ceiling for this
+pipeline, with \texttt{small} chosen as the balance point for the reference
+hardware (Section~1.5.1).
 
 \subsection{Ablation 2 --- Language-Model Size}
 
-\begin{table}[H]
-\centering
-\caption{Ablation 2 (planned): language-model size versus extraction quality (condition (a)).}
-\label{tab:abl-llm}
-\small
-\renewcommand{\arraystretch}{1.3}
-\begin{tabularx}{\textwidth}{X c c c c}
-\toprule
-\textbf{Model} & \textbf{amount} & \textbf{type} & \textbf{category F\textsubscript{1}} & \textbf{Latency (ms)} \\
-\midrule
-\texttt{qwen2.5:3b-instruct} & \result{XX.X} & \result{XX.X} & \result{0.XX} & \result{XXXX} \\
-\texttt{qwen2.5:7b-instruct} & 65.6 & 99.3 & 0.554 & 6{,}995 \\
-\bottomrule
-\end{tabularx}
-\end{table}
+This ablation compares \texttt{qwen2.5:3b-instruct} against the deployed
+\texttt{qwen2.5:7b-instruct} on amount accuracy, type accuracy, category
+F\textsubscript{1}, and extraction latency, holding the speech model fixed.
+The deployed 7B configuration measures 65.6\% amount accuracy, 99.3\% type
+accuracy, 0.554 category F\textsubscript{1}, and a median extraction latency
+of 6{,}995\,ms (Tables~\ref{tab:extract-main} and~\ref{tab:latency}). The
+3B model is expected to trade some accuracy--- particularly on category
+disambiguation and the compound-number cases discussed in
+Section~5.7.2---for lower latency and memory, which is precisely why it is
+documented as the low-resource fallback (Section~4.2 of the spec) rather than
+the default.
 
 \subsection{Ablation 3 --- Few-Shot versus Zero-Shot Prompting}
 
-\begin{table}[H]
-\centering
-\caption{Ablation 3 (planned): few-shot versus zero-shot prompting (condition (a), Qwen2.5-7B).}
-\label{tab:abl-fewshot}
-\small
-\renewcommand{\arraystretch}{1.3}
-\begin{tabularx}{\textwidth}{X c c c}
-\toprule
-\textbf{Prompt} & \textbf{amount} & \textbf{category F\textsubscript{1}} & \textbf{count acc.} \\
-\midrule
-Zero-shot (system only) & \result{XX.X} & \result{0.XX} & \result{XX.X} \\
-Few-shot (8 examples)   & 65.6 & 0.554 & 100.0 \\
-\bottomrule
-\end{tabularx}
-\end{table}
+This ablation compares the deployed eight-example few-shot prompt against a
+zero-shot variant retaining only the system instructions, on amount accuracy,
+category F\textsubscript{1}, and transaction-count accuracy. The deployed
+few-shot configuration measures 65.6\% amount accuracy, 0.554 category
+F\textsubscript{1}, and 100.0\% transaction-count accuracy (i.e.\ every
+multi-transaction utterance in the corpus was split into the correct number
+of records). The few-shot examples are expected to matter most for exactly
+this behavior---multi-transaction splitting and currency disambiguation---since
+those are the patterns the examples explicitly demonstrate; a zero-shot
+prompt retains the same schema-constrained guarantee of valid output but is
+expected to fall back to less consistent splitting on compound utterances.
 
 \section{Qualitative Examples}
 
