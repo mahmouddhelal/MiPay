@@ -23,6 +23,8 @@ class ApiException implements Exception {
     switch (code) {
       case 'INVALID_CREDENTIALS':
         return l10n.errorInvalidCredentials;
+      case 'EMAIL_TAKEN':
+        return l10n.errorEmailTaken;
       case 'TOKEN_EXPIRED':
         return l10n.errorTokenExpired;
       case 'NOT_FOUND':

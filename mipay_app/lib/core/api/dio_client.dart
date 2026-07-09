@@ -9,7 +9,10 @@ import 'api_exceptions.dart';
 /// current LAN IP (changes when the router reassigns DHCP). Emulators: use
 /// 10.0.2.2 (Android) or localhost (iOS). Single source of truth — referenced
 /// by both the authed Dio here and the plain Dio in auth_repository.dart.
-const kApiBaseUrl = 'http://192.168.1.3:8000/api/v1';
+// Demo setup: PHONE runs a hotspot ("Redmi note 10"), laptop joins it and the
+// DHCP-assigned laptop IP below is where the backend is reachable. This IP can
+// change if the laptop reconnects. For home WiFi instead, use 192.168.1.3.
+const kApiBaseUrl = 'http://10.116.242.4:8000/api/v1';
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(

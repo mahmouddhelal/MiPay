@@ -106,6 +106,7 @@
   "investments": "Investments",
 
   "errorInvalidCredentials": "Invalid email or password.",
+  "errorEmailTaken": "This email is already registered. Try signing in instead.",
   "errorRequired": "This field is required.",
   "errorMinPassword": "Password must be at least 8 characters.",
   "errorInvalidEmail": "Enter a valid email address.",

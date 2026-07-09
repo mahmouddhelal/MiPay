@@ -105,6 +105,7 @@
   "investments": "استثمارات",
 
   "errorInvalidCredentials": "البريد الإلكتروني أو كلمة المرور غلط.",
+  "errorEmailTaken": "البريد الإلكتروني ده مسجّل قبل كده. سجّل دخولك بدل ما تعمل حساب جديد.",
   "errorRequired": "الحقل ده مطلوب.",
   "errorMinPassword": "كلمة المرور لازم تكون 8 حروف على الأقل.",
   "errorInvalidEmail": "أدخل بريد إلكتروني صح.",
